@@ -1,0 +1,18 @@
+include: package:very_good_analysis/analysis_options.yaml
+
+analyzer:
+  plugins:
+    - riverpod_lint
+  exclude:
+    # AutoRoute output. The only generated code in the repo; never hand-edited,
+    # never linted, never counted for coverage.
+    - "**/*.gr.dart"
+  errors:
+    # Zero-warning policy: anything the analyzer reports fails the gate.
+    todo: error
+
+linter:
+  rules:
+    # Hand-written models declare `toMap`/`fromMap` returning dynamic-valued maps;
+    # public_member_api_docs would demand doc comments on every field accessor.
+    public_member_api_docs: false

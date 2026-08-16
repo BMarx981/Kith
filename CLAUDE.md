@@ -1,0 +1,66 @@
+# CLAUDE.md — Kith
+
+Shared household friendship tracker. Flutter + Riverpod (classic providers, no codegen) + AutoRoute + Firebase (Auth, Firestore, Storage). Two+ adults share one household's data in realtime.
+
+**Codegen policy: AutoRoute is the ONLY codegen in this project.** No freezed, no json_serializable, no riverpod_annotation, no other build_runner packages. All models are hand-written. Do not introduce a generator without explicit approval.
+
+Read `docs/PLAN.md` before starting any milestone work. Docs are the source of truth; if code and docs disagree, stop and flag it.
+
+## Commands
+
+```bash
+flutter pub get
+dart run build_runner build                                # AutoRoute only, run after route changes
+flutter analyze                                            # zero warnings policy
+flutter test --coverage
+./tool/check_coverage.sh                                   # reports coverage on lib/, does not gate
+firebase emulators:start                                   # required for repo + rules tests
+flutter test integration_test -d <device>                  # integration suite, emulators running
+```
+
+Run analyze + the full test suite before declaring any task done. Never mark work complete with a failing test or analyzer warning. Coverage is reported, not enforced.
+
+## Non-negotiables
+
+- **TDD for logic**: freshness math, suggestion engine, invite codes, repositories — test first.
+- **Test the logic that carries risk**: freshness math, suggestion scoring, model round-trips, repositories and invite codes are expected to stay fully covered. Coverage is reported by `tool/check_coverage.sh` but does not fail the build; use judgement rather than chasing a number on presentation code. `*.gr.dart` is always excluded from the report.
+- **Never edit `*.gr.dart`.** Change the route declarations, rerun build_runner.
+- **Every model ships with round-trip tests**: `fromMap(toMap(x)) == x`, `copyWith` covering every field, and equality/hashCode cases. Use the shared model-test helper in `test/helpers/`.
+- **All "now" reads go through `clockProvider`** (package:clock). Direct `DateTime.now()` in lib/ is a bug.
+- **UI never imports Firestore types.** Screens/widgets consume domain models via providers only. Firestore stays behind repository interfaces in `data/repositories/`.
+- **Firestore paths are household-scoped**: everything lives under `households/{hid}/...`. No top-level user data collections. Every rules change ships with an emulator rules test.
+- Small diffs. One concern per commit. Explain what changed and why in the summary so it can be reviewed as a diff.
+
+## Code style
+
+- Lints: `very_good_analysis`; fix, don't suppress. `riverpod_lint` is enabled through the analyzer's native `plugins:` block (it no longer runs on `custom_lint`).
+- Models: hand-written immutable classes — `const` constructor, `final` fields, explicit `toMap`/`fromMap`/`copyWith`/`==`/`hashCode`/`toString`. Keep field order consistent across all of them.
+- Riverpod: classic providers only (`NotifierProvider`, `AsyncNotifierProvider`, `StreamProvider`, `Provider`) — no `@riverpod` annotations, no `StateProvider`/`ChangeNotifier`. Keep providers small; derive, don't duplicate state.
+- AutoRoute: routes declared in `routing/app_router.dart`, guards in `routing/guards/`. Navigate with typed routes, never raw strings.
+- Pure functions for domain logic (gauge, scoring). No I/O in `features/suggestions/engine/`.
+- No commented-out code, no TODO/suggestion comments in committed code. If something is out of scope, say so in the task summary instead.
+- Errors: repositories return domain failures (sealed `Result`/failure types), never leak `FirebaseException` upward.
+
+## Testing conventions
+
+- Unit tests mirror lib/ structure under test/.
+- Table-driven tests for gauge + engine with a pinned `Clock.fixed`.
+- `fake_cloud_firestore` for repositories, `firebase_auth_mocks` for auth, `mocktail` for the rest. No network in unit/widget tests.
+- Widget tests override providers via `ProviderScope(overrides: [...])`; never instantiate real repositories in widget tests.
+- Golden tests for the freshness gauge states (fresh/due/overdue/never × light/dark). Update goldens only when the change is intentional and say so.
+- Security rules: emulator tests in `test/rules/` — every access pattern gets a positive and a negative case.
+
+## Domain quick reference
+
+- Freshness: `daysSinceLast / cadenceDays` → fresh < 0.75 ≤ due ≤ 1.25 < overdue. "Never seen" and "no hangouts" are distinct states.
+- Suggestion score: `overdueRatio × priorityWeight × recencyDamping`; contacts with an active PlannedHangout are damped. Deterministic under a fixed clock.
+- RelationshipTypes are per-household, editable, deletable only with reassignment.
+- Kid's-friend contacts carry parent/guardian name + phone as first-class fields.
+- Calendar: `CalendarSink` interface. `GoogleCalendarSink` is the supported path (Skylight subscribes to the Google Calendar). `SkylightDirectSink` (unofficial reverse-engineered API) is experimental, feature-flagged, and allowed to fail gracefully — never let it block core flows.
+
+## Boundaries
+
+- Don't add dependencies without flagging it first.
+- Don't touch Firebase project config, OAuth credentials, or signing.
+- Don't restructure directories or rename entities outside the current task.
+- Ask before writing migrations or scripts that mutate Firestore data.
