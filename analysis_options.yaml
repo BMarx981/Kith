@@ -4,9 +4,14 @@ analyzer:
   plugins:
     - riverpod_lint
   exclude:
-    # AutoRoute output. The only generated code in the repo; never hand-edited,
-    # never linted, never counted for coverage.
+    # AutoRoute output. The project's only build_runner codegen; never
+    # hand-edited, never linted, never counted for coverage.
     - "**/*.gr.dart"
+
+    # FlutterFire CLI output: platform app ids and API keys, rewritten wholesale
+    # by `flutterfire configure`. Not build_runner codegen, but equally
+    # off-limits to hand edits.
+    - "lib/firebase_options.dart"
   errors:
     # Zero-warning policy: anything the analyzer reports fails the gate.
     todo: error

@@ -1,4 +1,4 @@
-package com.example.kith
+package com.hawkstreak.kith
 
 import io.flutter.embedding.android.FlutterActivity
 
