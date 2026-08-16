@@ -78,7 +78,8 @@ void main() {
 
     test('a clear flag wins over a value passed for the same field', () {
       expect(
-        sample.copyWith(displayName: 'Ignored', clearDisplayName: true)
+        sample
+            .copyWith(displayName: 'Ignored', clearDisplayName: true)
             .displayName,
         isNull,
       );

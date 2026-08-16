@@ -58,17 +58,16 @@ class FirebaseAuthService implements AuthService {
   Future<Result<AuthUser>> signInWithApple() async => _notWiredUp('Apple');
 
   @override
-  Future<Result<void>> sendPasswordResetEmail(String email) =>
-      _guard(() async {
-        try {
-          await _auth.sendPasswordResetEmail(email: email);
-        } on FirebaseAuthException catch (error) {
-          // Reporting "no such account" would turn the reset form into an
-          // email-enumeration oracle, so an unknown address looks like success.
-          if (error.code != 'user-not-found') rethrow;
-        }
-        return const Ok(null);
-      });
+  Future<Result<void>> sendPasswordResetEmail(String email) => _guard(() async {
+    try {
+      await _auth.sendPasswordResetEmail(email: email);
+    } on FirebaseAuthException catch (error) {
+      // Reporting "no such account" would turn the reset form into an
+      // email-enumeration oracle, so an unknown address looks like success.
+      if (error.code != 'user-not-found') rethrow;
+    }
+    return const Ok(null);
+  });
 
   @override
   Future<Result<void>> signOut() => _guard(() async {

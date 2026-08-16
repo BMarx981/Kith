@@ -201,9 +201,9 @@ void main() {
 
     test('surfaces a rejected sign-up as a domain failure', () async {
       final auth = MockFirebaseAuth();
-      whenCalling(Invocation.method(#createUserWithEmailAndPassword, null))
-          .on(auth)
-          .thenThrow(FirebaseAuthException(code: 'email-already-in-use'));
+      whenCalling(
+        Invocation.method(#createUserWithEmailAndPassword, null),
+      ).on(auth).thenThrow(FirebaseAuthException(code: 'email-already-in-use'));
 
       final result = await FirebaseAuthService(auth).signUpWithEmail(
         email: 'taken@example.com',
@@ -232,9 +232,9 @@ void main() {
 
     test('reports success for an unknown address', () async {
       final auth = MockFirebaseAuth();
-      whenCalling(Invocation.method(#sendPasswordResetEmail, null))
-          .on(auth)
-          .thenThrow(FirebaseAuthException(code: 'user-not-found'));
+      whenCalling(
+        Invocation.method(#sendPasswordResetEmail, null),
+      ).on(auth).thenThrow(FirebaseAuthException(code: 'user-not-found'));
 
       final result = await FirebaseAuthService(
         auth,
@@ -249,9 +249,9 @@ void main() {
 
     test('still surfaces other failures', () async {
       final auth = MockFirebaseAuth();
-      whenCalling(Invocation.method(#sendPasswordResetEmail, null))
-          .on(auth)
-          .thenThrow(FirebaseAuthException(code: 'invalid-email'));
+      whenCalling(
+        Invocation.method(#sendPasswordResetEmail, null),
+      ).on(auth).thenThrow(FirebaseAuthException(code: 'invalid-email'));
 
       final result = await FirebaseAuthService(
         auth,

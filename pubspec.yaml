@@ -34,10 +34,12 @@ dependencies:
   # Injectable time source; every "now" read goes through clockProvider.
   clock: ^1.1.2
 
-  cupertino_icons: ^1.0.8
-
   # Firebase. Project kith-hawkstreak; the generated platform config lives in
   # lib/firebase_options.dart and is rewritten by `flutterfire configure`.
+  # Kept in alphabetical order with everything else, so cupertino_icons sits
+  # between the two halves of this group.
+  cloud_firestore: ^6.8.0
+  cupertino_icons: ^1.0.8
   firebase_auth: ^6.5.7
   firebase_core: ^4.13.0
 
@@ -55,8 +57,11 @@ dev_dependencies:
   auto_route_generator: ^10.6.0
   build_runner: ^2.15.1
 
-  # In-memory Firebase Auth for unit tests. mock_exceptions drives its error
-  # paths, so it is depended on directly rather than reached transitively.
+  # In-memory Firebase backends for unit tests: repositories run against
+  # fake_cloud_firestore, auth against firebase_auth_mocks. mock_exceptions
+  # drives both of their error paths, so it is depended on directly rather
+  # than reached transitively.
+  fake_cloud_firestore: ^4.2.0
   firebase_auth_mocks: ^0.15.2
 
   flutter_test:
