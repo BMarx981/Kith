@@ -94,6 +94,13 @@ enum AuthFailureReason {
   /// The account exists but has been disabled.
   userDisabled,
 
+  /// Too many attempts in too short a window; the backend is throttling.
+  tooManyRequests,
+
+  /// This sign-in method is switched off in the Firebase console, or is not
+  /// wired up in this build.
+  providerUnavailable,
+
   /// The user dismissed a federated sign-in sheet. Not an error to report.
   cancelled,
 

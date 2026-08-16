@@ -36,6 +36,11 @@ dependencies:
 
   cupertino_icons: ^1.0.8
 
+  # Firebase. Project kith-hawkstreak; the generated platform config lives in
+  # lib/firebase_options.dart and is rewritten by `flutterfire configure`.
+  firebase_auth: ^6.5.7
+  firebase_core: ^4.13.0
+
   flutter:
     sdk: flutter
 
@@ -50,8 +55,15 @@ dev_dependencies:
   auto_route_generator: ^10.6.0
   build_runner: ^2.15.1
 
+  # In-memory Firebase Auth for unit tests. mock_exceptions drives its error
+  # paths, so it is depended on directly rather than reached transitively.
+  firebase_auth_mocks: ^0.15.2
+
   flutter_test:
     sdk: flutter
+
+  mock_exceptions: ^0.8.2
+  mocktail: ^1.0.5
 
   riverpod_lint: ^3.1.4
   very_good_analysis: ^10.3.0

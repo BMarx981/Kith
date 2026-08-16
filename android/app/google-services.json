@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "883650252785",
+    "project_id": "kith-hawkstreak",
+    "storage_bucket": "kith-hawkstreak.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:883650252785:android:bcadae4bd2f15ae1337e50",
+        "android_client_info": {
+          "package_name": "com.hawkstreak.kith"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDzm-6Eb0NGrFnmZuMau1aQjvTOewa8TN8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
