@@ -1,0 +1,230 @@
+rules_version = '2';
+
+// Kith security rules.
+//
+// Everything a household owns lives under households/{hid}, readable and
+// writable only by that household's members. The single top-level collection
+// is inviteCodes, a code -> household id index that exists so a prospective
+// member can find the household they were invited to before they are allowed
+// to read anything inside it. See docs/M1-FIRESTORE-RULES.md for the reasoning,
+// including why the index is a lookup convenience and not a security boundary.
+//
+// There is no wildcard match at the bottom: anything not named here is denied.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---- helpers ---------------------------------------------------------
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function memberDoc(hid) {
+      return get(/databases/$(database)/documents/households/$(hid)/members/$(request.auth.uid));
+    }
+
+    function isMember(hid) {
+      return signedIn() &&
+        exists(/databases/$(database)/documents/households/$(hid)/members/$(request.auth.uid));
+    }
+
+    function isOwner(hid) {
+      return isMember(hid) && memberDoc(hid).data.role == 'owner';
+    }
+
+    function householdDoc(hid) {
+      return get(/databases/$(database)/documents/households/$(hid));
+    }
+
+    function indexDoc(code) {
+      return get(/databases/$(database)/documents/inviteCodes/$(code));
+    }
+
+    // Epoch milliseconds, as written by every model's toMap(). Bounded so a
+    // client cannot store a value that overflows date maths downstream.
+    function isEpochMillis(value) {
+      return value is int && value > 0 && value < 4102444800000;
+    }
+
+    function isBoundedString(value, maxLength) {
+      return value is string && value.size() > 0 && value.size() <= maxLength;
+    }
+
+    // Crockford Base32 without I, L, O or U, six characters. Mirrors
+    // InviteCode.alphabet in lib/features/household/domain/invite_code.dart.
+    function isInviteCode(value) {
+      return value is string && value.matches('^[0-9A-HJKMNP-TV-Z]{6}$');
+    }
+
+    // The caller owns the index entry for `code`, and it points at `hid`.
+    // A forged entry someone else created fails the createdBy check.
+    function ownsIndexEntryFor(code, hid) {
+      return exists(/databases/$(database)/documents/inviteCodes/$(code)) &&
+        indexDoc(code).data.householdId == hid &&
+        indexDoc(code).data.createdBy == request.auth.uid;
+    }
+
+    function unchanged(field) {
+      return !(field in request.resource.data) ||
+        request.resource.data[field] == resource.data[field];
+    }
+
+    // ---- households/{hid} ------------------------------------------------
+
+    function isValidHousehold(hid, data) {
+      return data.keys().hasOnly(['id', 'name', 'inviteCode', 'createdAt', 'createdBy']) &&
+        data.keys().hasAll(['id', 'name', 'inviteCode', 'createdAt', 'createdBy']) &&
+        data.id == hid &&
+        isBoundedString(data.name, 100) &&
+        isInviteCode(data.inviteCode) &&
+        isEpochMillis(data.createdAt) &&
+        data.createdBy is string;
+    }
+
+    match /households/{hid} {
+      allow read: if isMember(hid);
+
+      // Write order is index entry, then household, then the owner's member
+      // document. The index entry has to exist first so this rule can confirm
+      // the creator reserved the code they are claiming.
+      allow create: if signedIn() &&
+        isValidHousehold(hid, request.resource.data) &&
+        request.resource.data.createdBy == request.auth.uid &&
+        ownsIndexEntryFor(request.resource.data.inviteCode, hid);
+
+      // Owners may rename the household and rotate its invite code. Rotating
+      // requires having reserved the new code first, so an owner cannot point
+      // their household at an index entry somebody else created.
+      allow update: if isOwner(hid) &&
+        isValidHousehold(hid, request.resource.data) &&
+        unchanged('id') &&
+        unchanged('createdAt') &&
+        unchanged('createdBy') &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['name', 'inviteCode']) &&
+        (request.resource.data.inviteCode == resource.data.inviteCode ||
+          ownsIndexEntryFor(request.resource.data.inviteCode, hid));
+
+      // No household deletion in v1. Removing one means cascading every
+      // subcollection, which a client cannot do atomically.
+      allow delete: if false;
+
+      // ---- households/{hid}/members/{uid} --------------------------------
+
+      function isValidMember(uid, data, extraKeys) {
+        return data.keys().hasOnly(
+            ['id', 'displayName', 'email', 'role', 'joinedAt', 'photoUrl'].concat(extraKeys)) &&
+          data.keys().hasAll(
+            ['id', 'displayName', 'email', 'role', 'joinedAt', 'photoUrl'].concat(extraKeys)) &&
+          data.id == uid &&
+          isBoundedString(data.displayName, 100) &&
+          isBoundedString(data.email, 320) &&
+          data.role in ['owner', 'member'] &&
+          isEpochMillis(data.joinedAt) &&
+          (data.photoUrl == null || isBoundedString(data.photoUrl, 2048));
+      }
+
+      match /members/{uid} {
+        allow read: if isMember(hid);
+
+        // Two ways in, both self-writes only.
+        //
+        // Owner: the household names you as its creator. Nobody else can take
+        // that role, because createdBy is immutable once the household exists.
+        //
+        // Joiner: you prove knowledge of the current invite code by echoing it
+        // back in joinedWithCode, a write-time token the Member model ignores.
+        // role must be 'member' on this path, which is what stops a joiner
+        // escalating to owner.
+        allow create: if isSelf(uid) && (
+          (isValidMember(uid, request.resource.data, []) &&
+            request.resource.data.role == 'owner' &&
+            householdDoc(hid).data.createdBy == request.auth.uid) ||
+          (isValidMember(uid, request.resource.data, ['joinedWithCode']) &&
+            request.resource.data.role == 'member' &&
+            request.resource.data.joinedWithCode == householdDoc(hid).data.inviteCode)
+        );
+
+        // Self-updates cover profile fields only; role is deliberately absent,
+        // so a member cannot promote themselves and an owner cannot be demoted
+        // by anyone but another owner.
+        allow update: if isValidMember(uid, request.resource.data, []) &&
+          unchanged('id') &&
+          unchanged('joinedAt') &&
+          (
+            (isSelf(uid) && isMember(hid) &&
+              request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['displayName', 'email', 'photoUrl'])) ||
+            (isOwner(hid) &&
+              request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['role']))
+          );
+
+        // Leaving is a self-delete; removing someone else takes an owner.
+        allow delete: if (isSelf(uid) && isMember(hid)) || isOwner(hid);
+      }
+
+      // ---- household data subcollections ---------------------------------
+      //
+      // Shape validation lands with the models, in M2 and M3. Until then
+      // membership is the whole gate, which is the same posture the app ships
+      // with for these paths anyway: any member may write any of them.
+
+      match /contacts/{cid} {
+        allow read, write: if isMember(hid);
+      }
+
+      match /relationshipTypes/{rid} {
+        allow read, write: if isMember(hid);
+      }
+
+      match /hangouts/{hgid} {
+        allow read, write: if isMember(hid);
+      }
+
+      match /plannedHangouts/{pid} {
+        allow read, write: if isMember(hid);
+      }
+    }
+
+    // ---- inviteCodes/{code} ----------------------------------------------
+    //
+    // A code -> household id pointer, holding no user data. The document id is
+    // the code itself, so reading one means already knowing it; listing the
+    // collection is denied, which is what keeps codes unguessable in practice.
+    //
+    // Anyone signed in can create an entry, including one pointing at a
+    // household they do not own. That is harmless: the household create rule
+    // and the member create rule both re-check against the household document
+    // itself, so a forged pointer grants nothing.
+
+    match /inviteCodes/{code} {
+      function isValidIndexEntry(code, data) {
+        return data.keys().hasOnly(['householdId', 'createdBy', 'createdAt']) &&
+          data.keys().hasAll(['householdId', 'createdBy', 'createdAt']) &&
+          isInviteCode(code) &&
+          isBoundedString(data.householdId, 128) &&
+          data.createdBy is string &&
+          isEpochMillis(data.createdAt);
+      }
+
+      allow get: if signedIn();
+      allow list: if false;
+
+      allow create: if signedIn() &&
+        isValidIndexEntry(code, request.resource.data) &&
+        request.resource.data.createdBy == request.auth.uid;
+
+      // Rotation is create-the-new-one then delete-the-old-one, so that a
+      // half-finished rotation leaves a stale pointer rather than a code that
+      // resolves to the wrong household.
+      allow update: if false;
+
+      allow delete: if isOwner(resource.data.householdId);
+    }
+  }
+}

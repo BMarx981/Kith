@@ -1,1 +1,47 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"kith-hawkstreak","appId":"1:883650252785:android:bcadae4bd2f15ae1337e50","fileOutput":"android/app/google-services.json"}},"ios":{"default":{"projectId":"kith-hawkstreak","appId":"1:883650252785:ios:7d714df8d73dc13c337e50","uploadDebugSymbols":false,"fileOutput":"ios/Runner/GoogleService-Info.plist"}},"dart":{"lib/firebase_options.dart":{"projectId":"kith-hawkstreak","configurations":{"android":"1:883650252785:android:bcadae4bd2f15ae1337e50","ios":"1:883650252785:ios:7d714df8d73dc13c337e50"}}}}}}
+{
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "emulators": {
+    "auth": {
+      "port": 9099
+    },
+    "firestore": {
+      "port": 8080
+    },
+    "ui": {
+      "enabled": true,
+      "port": 4000
+    },
+    "singleProjectMode": true
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "kith-hawkstreak",
+          "appId": "1:883650252785:android:bcadae4bd2f15ae1337e50",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "ios": {
+        "default": {
+          "projectId": "kith-hawkstreak",
+          "appId": "1:883650252785:ios:7d714df8d73dc13c337e50",
+          "uploadDebugSymbols": false,
+          "fileOutput": "ios/Runner/GoogleService-Info.plist"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "kith-hawkstreak",
+          "configurations": {
+            "android": "1:883650252785:android:bcadae4bd2f15ae1337e50",
+            "ios": "1:883650252785:ios:7d714df8d73dc13c337e50"
+          }
+        }
+      }
+    }
+  }
+}

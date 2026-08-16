@@ -91,8 +91,11 @@ households/{hid}
   relationshipTypes/{rid}
   hangouts/{hgid}
   plannedHangouts/{pid}
+
+inviteCodes/{code}         // { householdId, createdBy, createdAt }
 ```
 
+- `inviteCodes` is the only top-level collection, and it holds no user data. It is a code → household id index, needed because a prospective member cannot read anything under `households/{hid}` until they are already a member. The document id *is* the code, so `get` requires knowing it and `list` is denied. It is a lookup convenience, not the security boundary: the join is authorised by the member-create rule re-reading the household document and comparing against *its* `inviteCode`, so a forged index entry grants nothing. Full reasoning in `docs/M1-FIRESTORE-RULES.md`.
 - **Security rules**: a user can read/write under `households/{hid}` iff `exists(households/{hid}/members/{request.auth.uid})`. Rules get their own emulator test suite.
 
 ### Project layout (feature-first)

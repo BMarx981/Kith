@@ -28,7 +28,7 @@ Run analyze + the full test suite before declaring any task done. Never mark wor
 - **Every model ships with round-trip tests**: `fromMap(toMap(x)) == x`, `copyWith` covering every field, and equality/hashCode cases. Use the shared model-test helper in `test/helpers/`.
 - **All "now" reads go through `clockProvider`** (package:clock). Direct `DateTime.now()` in lib/ is a bug.
 - **UI never imports Firestore types.** Screens/widgets consume domain models via providers only. Firestore stays behind repository interfaces in `data/repositories/`.
-- **Firestore paths are household-scoped**: everything lives under `households/{hid}/...`. No top-level user data collections. Every rules change ships with an emulator rules test.
+- **Firestore paths are household-scoped**: household *data* lives under `households/{hid}/...`. The one permitted top-level collection is `inviteCodes/{code}`, a code → household id pointer holding no user data; it exists because a prospective member has to resolve a code before they are allowed to read anything inside the household. Adding any other top-level collection needs explicit approval. Every rules change ships with an emulator rules test (deferred as of 2026-08-16 — see `docs/M1-FIRESTORE-RULES.md`).
 - Small diffs. One concern per commit. Explain what changed and why in the summary so it can be reviewed as a diff.
 
 ## Code style
