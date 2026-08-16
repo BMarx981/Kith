@@ -73,6 +73,58 @@ final class ConflictFailure extends Failure {
   String get name => 'ConflictFailure';
 }
 
+/// Why a sign-in, sign-up or sign-out attempt failed.
+///
+/// The service layer maps provider-specific error codes onto these so the UI
+/// can branch on intent ("that password is wrong") without knowing which
+/// backend produced the error.
+enum AuthFailureReason {
+  /// Email/password pair did not match an account.
+  invalidCredentials,
+
+  /// Sign-up used an address that already has an account.
+  emailAlreadyInUse,
+
+  /// Sign-up password did not meet the backend's strength rule.
+  weakPassword,
+
+  /// The address is not a well-formed email.
+  invalidEmail,
+
+  /// The account exists but has been disabled.
+  userDisabled,
+
+  /// The user dismissed a federated sign-in sheet. Not an error to report.
+  cancelled,
+
+  /// The provider rejected the attempt for a reason not listed above.
+  unknown,
+}
+
+/// Authentication was refused. [reason] carries the actionable detail.
+final class AuthFailure extends Failure {
+  const AuthFailure(this.reason, super.message);
+
+  /// What went wrong, in terms the UI can branch on.
+  final AuthFailureReason reason;
+
+  @override
+  String get name => 'AuthFailure';
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AuthFailure &&
+          other.message == message &&
+          other.reason == reason;
+
+  @override
+  int get hashCode => Object.hash(AuthFailure, message, reason);
+
+  @override
+  String toString() => '$name(${reason.name}: $message)';
+}
+
 /// Anything not covered above. Carries the original error for logging.
 final class UnknownFailure extends Failure {
   const UnknownFailure(super.message, {this.cause});

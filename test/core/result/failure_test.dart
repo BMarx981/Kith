@@ -10,6 +10,10 @@ void main() {
       (ValidationFailure('bad code'), 'ValidationFailure(bad code)'),
       (ConflictFailure('code taken'), 'ConflictFailure(code taken)'),
       (UnknownFailure('boom'), 'UnknownFailure(boom)'),
+      (
+        AuthFailure(AuthFailureReason.invalidCredentials, 'nope'),
+        'AuthFailure(invalidCredentials: nope)',
+      ),
     ];
 
     test('each exposes its message and a named toString', () {
@@ -29,6 +33,25 @@ void main() {
       expect(const NetworkFailure('a'), isNot(const UnknownFailure('a')));
     });
 
+    test('AuthFailure equality accounts for the reason', () {
+      const wrongPassword = AuthFailure(
+        AuthFailureReason.invalidCredentials,
+        'nope',
+      );
+
+      expect(
+        wrongPassword,
+        const AuthFailure(AuthFailureReason.invalidCredentials, 'nope'),
+      );
+      const same = AuthFailure(AuthFailureReason.invalidCredentials, 'nope');
+      expect(wrongPassword.hashCode, same.hashCode);
+      expect(
+        wrongPassword,
+        isNot(const AuthFailure(AuthFailureReason.userDisabled, 'nope')),
+      );
+      expect(wrongPassword, isNot(const ValidationFailure('nope')));
+    });
+
     test('UnknownFailure can carry the original cause for logging', () {
       final cause = StateError('underlying');
       final failure = UnknownFailure('boom', cause: cause);
@@ -45,6 +68,7 @@ void main() {
       NotFoundFailure() => 'gone',
       ValidationFailure() => 'input',
       ConflictFailure() => 'conflict',
+      AuthFailure() => 'auth',
       UnknownFailure() => 'unknown',
     };
 
@@ -53,6 +77,10 @@ void main() {
     expect(category(const NotFoundFailure('x')), 'gone');
     expect(category(const ValidationFailure('x')), 'input');
     expect(category(const ConflictFailure('x')), 'conflict');
+    expect(
+      category(const AuthFailure(AuthFailureReason.cancelled, 'x')),
+      'auth',
+    );
     expect(category(const UnknownFailure('x')), 'unknown');
   });
 }
