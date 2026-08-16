@@ -10,6 +10,7 @@ class MilestonePlaceholder extends StatelessWidget {
     required this.title,
     required this.milestone,
     required this.icon,
+    this.actions,
     super.key,
   });
 
@@ -22,11 +23,14 @@ class MilestonePlaceholder extends StatelessWidget {
   /// Illustrative icon for the empty body.
   final IconData icon;
 
+  /// App bar actions, for the few controls that exist before the screen does.
+  final List<Widget>? actions;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: Text(title)),
+      appBar: AppBar(title: Text(title), actions: actions),
       body: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,

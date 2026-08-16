@@ -44,6 +44,44 @@ void main() {
       expect(find.byIcon(Icons.favorite_outline), findsOneWidget);
     });
 
+    testWidgets('shows no app bar actions unless it is given some', (
+      tester,
+    ) async {
+      await tester.pumpApp(
+        const MilestonePlaceholder(
+          title: 'Contacts',
+          milestone: 'M2',
+          icon: Icons.people_outline,
+        ),
+      );
+
+      expect(find.byType(IconButton), findsNothing);
+    });
+
+    testWidgets('places the given actions in the app bar', (tester) async {
+      await tester.pumpApp(
+        MilestonePlaceholder(
+          title: 'Contacts',
+          milestone: 'M2',
+          icon: Icons.people_outline,
+          actions: [
+            IconButton(
+              onPressed: () {},
+              icon: const Icon(Icons.logout_outlined),
+            ),
+          ],
+        ),
+      );
+
+      expect(
+        find.descendant(
+          of: find.byType(AppBar),
+          matching: find.byIcon(Icons.logout_outlined),
+        ),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('renders in the dark theme', (tester) async {
       await tester.pumpApp(
         const MilestonePlaceholder(

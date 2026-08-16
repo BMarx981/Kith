@@ -1,17 +1,37 @@
 import 'dart:async';
 
+import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kith/data/models/auth_user.dart';
+import 'package:kith/features/auth/application/auth_providers.dart';
 import 'package:kith/features/contacts/presentation/contacts_screen.dart';
 import 'package:kith/features/suggestions/presentation/home_screen.dart';
 import 'package:kith/routing/app_router.dart';
+import 'package:kith/routing/guards/auth_guard.dart';
+
+import '../helpers/fake_auth_service.dart';
+
+/// Stands in for the auth guard so these tests describe the route graph
+/// rather than who is signed in; the guard has its own suite.
+class _OpenGuard extends AutoRouteGuard {
+  const _OpenGuard();
+
+  @override
+  void onNavigation(NavigationResolver resolver, StackRouter router) =>
+      resolver.next();
+}
 
 void main() {
+  const user = AuthUser(id: 'uid-1', email: 'brian@example.com');
+
+  AppRouter buildRouter() => AppRouter(authGuard: const _OpenGuard());
+
   group('AppRouter', () {
-    test('declares the M0 skeleton routes at stable paths', () {
+    test('declares its routes at stable paths', () {
       final paths = {
-        for (final route in AppRouter().routes) route.name: route.path,
+        for (final route in buildRouter().routes) route.name: route.path,
       };
 
       expect(paths, {
@@ -22,14 +42,27 @@ void main() {
     });
 
     test('starts at the home route', () {
-      final initial = AppRouter().routes.where((r) => r.initial).toList();
+      final initial = buildRouter().routes.where((r) => r.initial).toList();
 
       expect(initial, hasLength(1));
       expect(initial.single.name, 'HomeRoute');
     });
 
+    test('guards everything that reads household data, and only that', () {
+      final guarded = {
+        for (final route in buildRouter().routes)
+          route.name: route.guards.isNotEmpty,
+      };
+
+      expect(guarded, {
+        'HomeRoute': true,
+        'ContactsRoute': true,
+        'SignInRoute': false,
+      });
+    });
+
     testWidgets('resolves the initial path to the home screen', (tester) async {
-      final router = AppRouter();
+      final router = buildRouter();
 
       await tester.pumpWidget(
         MaterialApp.router(routerConfig: router.config()),
@@ -42,7 +75,7 @@ void main() {
     testWidgets('navigates to contacts via the generated typed route', (
       tester,
     ) async {
-      final router = AppRouter();
+      final router = buildRouter();
 
       await tester.pumpWidget(
         MaterialApp.router(routerConfig: router.config()),
@@ -59,21 +92,48 @@ void main() {
   });
 
   group('appRouterProvider', () {
-    test('exposes an AppRouter', () {
-      final container = ProviderContainer();
+    ProviderContainer harness(FakeAuthService auth) {
+      final container = ProviderContainer(
+        overrides: [authServiceProvider.overrideWithValue(auth)],
+      );
       addTearDown(container.dispose);
+      // The provider's auth subscription only runs while something listens to
+      // it, which in the app is KithApp watching it.
+      final subscription = container.listen(appRouterProvider, (_, _) {});
+      addTearDown(subscription.close);
+      return container;
+    }
 
-      expect(container.read(appRouterProvider), isA<AppRouter>());
+    test('exposes an AppRouter behind the auth guard', () {
+      final auth = FakeAuthService();
+      addTearDown(auth.dispose);
+      final container = harness(auth);
+
+      final router = container.read(appRouterProvider);
+
+      expect(router, isA<AppRouter>());
+      expect(router.authGuard, isA<AuthGuard>());
     });
 
     test('returns the same instance across reads', () {
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
+      final auth = FakeAuthService();
+      addTearDown(auth.dispose);
+      final container = harness(auth);
 
       expect(
         container.read(appRouterProvider),
         same(container.read(appRouterProvider)),
       );
+    });
+
+    test('subscribes to the auth state so guards can be re-run', () async {
+      final auth = FakeAuthService(initialUser: user);
+      addTearDown(auth.dispose);
+      final container = harness(auth);
+
+      await container.read(authStateChangesProvider.future);
+
+      expect(container.read(currentUserProvider), user);
     });
   });
 }

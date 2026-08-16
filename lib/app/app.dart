@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kith/app/theme.dart';
+import 'package:kith/app/widgets/app_splash.dart';
 import 'package:kith/routing/app_router.dart';
 
 /// Root widget: wires the router and themes into a [MaterialApp].
@@ -14,7 +15,11 @@ class KithApp extends ConsumerWidget {
       title: 'Kith',
       theme: KithTheme.light,
       darkTheme: KithTheme.dark,
-      routerConfig: router.config(),
+      routerConfig: router.config(
+        // Shown while the auth guard waits to hear whether a stored session
+        // survived, which is the only time the stack is empty.
+        placeholder: (_) => const AppSplash(),
+      ),
     );
   }
 }
