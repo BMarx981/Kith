@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kith/core/result/failure.dart';
 import 'package:kith/data/models/auth_user.dart';
 import 'package:kith/data/models/household.dart';
+import 'package:kith/data/models/member.dart';
 import 'package:kith/data/models/member_role.dart';
 import 'package:kith/data/repositories/firestore_household_repository.dart';
 import 'package:kith/features/household/domain/invite_code.dart';
@@ -496,6 +497,126 @@ void main() {
       await expectLater(
         repository.watchMembers('nope').first,
         completion(isEmpty),
+      );
+    });
+  });
+
+  group('watchHouseholdIdsFor', () {
+    /// Writes a membership document straight into [householdId], the way a
+    /// join the rules accepted would leave one behind.
+    Future<void> addMembership(
+      String householdId,
+      String uid, {
+      required DateTime joinedAt,
+    }) => firestore
+        .collection(FirestoreHouseholdRepository.householdsPath)
+        .doc(householdId)
+        .collection(FirestoreHouseholdRepository.membersPath)
+        .doc(uid)
+        .set(
+          Member(
+            id: uid,
+            displayName: 'Someone',
+            email: 'someone@example.com',
+            role: MemberRole.member,
+            joinedAt: joinedAt,
+          ).toMap(),
+        );
+
+    test('finds the household the user created', () async {
+      final household = await createHousehold();
+
+      await expectLater(
+        repository.watchHouseholdIdsFor(owner.id).first,
+        completion([household.id]),
+      );
+    });
+
+    test('finds the household the user joined', () async {
+      final household = await createHousehold();
+      await repository.joinWithInviteCode(
+        code: household.inviteCode!.value,
+        user: joiner,
+        displayName: 'Partner',
+      );
+
+      await expectLater(
+        repository.watchHouseholdIdsFor(joiner.id).first,
+        completion([household.id]),
+      );
+    });
+
+    test('emits an empty list for a user in no household', () async {
+      await createHousehold();
+
+      await expectLater(
+        repository.watchHouseholdIdsFor('uid-stranger').first,
+        completion(isEmpty),
+      );
+    });
+
+    test("ignores other people's memberships", () async {
+      final household = await createHousehold();
+
+      final ids = await repository.watchHouseholdIdsFor(joiner.id).first;
+
+      expect(ids, isEmpty);
+      expect(await repository.watchHouseholdIdsFor(owner.id).first, [
+        household.id,
+      ]);
+    });
+
+    test('orders several households longest-standing first', () async {
+      // Written newest first, so an implementation that just takes the query
+      // order rather than sorting comes back the wrong way round.
+      await addMembership(
+        'hid-newest',
+        joiner.id,
+        joinedAt: now.add(const Duration(days: 2)),
+      );
+      await addMembership('hid-oldest', joiner.id, joinedAt: now);
+      await addMembership(
+        'hid-middle',
+        joiner.id,
+        joinedAt: now.add(const Duration(days: 1)),
+      );
+
+      await expectLater(
+        repository.watchHouseholdIdsFor(joiner.id).first,
+        completion(['hid-oldest', 'hid-middle', 'hid-newest']),
+      );
+    });
+
+    test('a query that will not even open reports a domain failure', () async {
+      final unusable = _MockFirestore();
+      when(() => unusable.collectionGroup(any())).thenThrow(
+        FirebaseException(
+          plugin: 'cloud_firestore',
+          code: 'permission-denied',
+          message: 'refused',
+        ),
+      );
+
+      await expectLater(
+        FirestoreHouseholdRepository(
+          unusable,
+          Random(1),
+        ).watchHouseholdIdsFor(owner.id).first,
+        throwsA(const PermissionFailure('refused')),
+      );
+    });
+
+    test('a membership that will not parse reports a domain failure', () async {
+      await firestore
+          .collection(FirestoreHouseholdRepository.householdsPath)
+          .doc('hid-1')
+          .collection(FirestoreHouseholdRepository.membersPath)
+          .doc(owner.id)
+          .set({'id': owner.id, 'joinedAt': 'the other day'});
+
+      await expectLater(
+        repository.watchHouseholdIdsFor(owner.id).first,
+        throwsA(isA<UnknownFailure>()),
       );
     });
   });

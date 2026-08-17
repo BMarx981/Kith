@@ -7,14 +7,18 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kith/data/models/auth_user.dart';
 import 'package:kith/features/auth/application/auth_providers.dart';
 import 'package:kith/features/contacts/presentation/contacts_screen.dart';
+import 'package:kith/features/household/application/household_providers.dart';
+import 'package:kith/features/household/presentation/household_screen.dart';
 import 'package:kith/features/suggestions/presentation/home_screen.dart';
 import 'package:kith/routing/app_router.dart';
 import 'package:kith/routing/guards/auth_guard.dart';
 
 import '../helpers/fake_auth_service.dart';
+import '../helpers/fake_household_repository.dart';
 
-/// Stands in for the auth guard so these tests describe the route graph
-/// rather than who is signed in; the guard has its own suite.
+/// Stands in for the real guards so these tests describe the route graph
+/// rather than who is signed in or where they belong; each guard has its own
+/// suite.
 class _OpenGuard extends AutoRouteGuard {
   const _OpenGuard();
 
@@ -26,7 +30,10 @@ class _OpenGuard extends AutoRouteGuard {
 void main() {
   const user = AuthUser(id: 'uid-1', email: 'brian@example.com');
 
-  AppRouter buildRouter() => AppRouter(authGuard: const _OpenGuard());
+  AppRouter buildRouter() => AppRouter(
+    authGuard: const _OpenGuard(),
+    householdGuard: const _OpenGuard(),
+  );
 
   group('AppRouter', () {
     test('declares its routes at stable paths', () {
@@ -37,7 +44,9 @@ void main() {
       expect(paths, {
         'HomeRoute': '/',
         'ContactsRoute': '/contacts',
+        'HouseholdRoute': '/household',
         'SignInRoute': '/sign-in',
+        'HouseholdOnboardingRoute': '/welcome',
       });
     });
 
@@ -51,13 +60,18 @@ void main() {
     test('guards everything that reads household data, and only that', () {
       final guarded = {
         for (final route in buildRouter().routes)
-          route.name: route.guards.isNotEmpty,
+          route.name: route.guards.length,
       };
 
+      // Onboarding is behind the auth guard only: it is where a signed-in
+      // user without a household is sent, so guarding it on membership too
+      // would send them back to themselves.
       expect(guarded, {
-        'HomeRoute': true,
-        'ContactsRoute': true,
-        'SignInRoute': false,
+        'HomeRoute': 2,
+        'ContactsRoute': 2,
+        'HouseholdRoute': 2,
+        'SignInRoute': 0,
+        'HouseholdOnboardingRoute': 1,
       });
     });
 
@@ -88,6 +102,37 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(ContactsScreen), findsOneWidget);
+    });
+
+    testWidgets('the home screen action reaches the household', (
+      tester,
+    ) async {
+      final auth = FakeAuthService(initialUser: user);
+      addTearDown(auth.dispose);
+      final households = FakeHouseholdRepository();
+      addTearDown(households.dispose);
+      await households.createHousehold(
+        name: 'The Marx house',
+        owner: user,
+        displayName: 'Brian',
+      );
+      final router = buildRouter();
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authServiceProvider.overrideWithValue(auth),
+            householdRepositoryProvider.overrideWithValue(households),
+          ],
+          child: MaterialApp.router(routerConfig: router.config()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(HomeScreen.householdKey));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(HouseholdScreen), findsOneWidget);
     });
   });
 

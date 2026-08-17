@@ -43,4 +43,16 @@ abstract interface class HouseholdRepository {
 
   /// The members of [householdId], longest-standing first.
   Stream<List<Member>> watchMembers(String householdId);
+
+  /// The ids of the households [uid] belongs to, longest-standing first.
+  ///
+  /// This is how a returning user finds their household on cold start: the
+  /// membership document is the only record of it, so the question is asked of
+  /// the membership documents directly rather than of a copy kept elsewhere.
+  ///
+  /// Emits an empty list for a user who belongs to none, which is what sends a
+  /// freshly signed-up user into onboarding, and emits again when they are
+  /// added to or removed from one. v1 puts a user in a single household; the
+  /// list is what the data can actually hold, and callers pick from it.
+  Stream<List<String>> watchHouseholdIdsFor(String uid);
 }

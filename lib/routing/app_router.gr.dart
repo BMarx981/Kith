@@ -43,6 +43,38 @@ class HomeRoute extends PageRouteInfo<void> {
 }
 
 /// generated route for
+/// [HouseholdOnboardingScreen]
+class HouseholdOnboardingRoute extends PageRouteInfo<void> {
+  const HouseholdOnboardingRoute({List<PageRouteInfo>? children})
+    : super(HouseholdOnboardingRoute.name, initialChildren: children);
+
+  static const String name = 'HouseholdOnboardingRoute';
+
+  static PageInfo page = PageInfo(
+    name,
+    builder: (data) {
+      return const HouseholdOnboardingScreen();
+    },
+  );
+}
+
+/// generated route for
+/// [HouseholdScreen]
+class HouseholdRoute extends PageRouteInfo<void> {
+  const HouseholdRoute({List<PageRouteInfo>? children})
+    : super(HouseholdRoute.name, initialChildren: children);
+
+  static const String name = 'HouseholdRoute';
+
+  static PageInfo page = PageInfo(
+    name,
+    builder: (data) {
+      return const HouseholdScreen();
+    },
+  );
+}
+
+/// generated route for
 /// [SignInScreen]
 class SignInRoute extends PageRouteInfo<void> {
   const SignInRoute({List<PageRouteInfo>? children})

@@ -181,6 +181,38 @@ class FirestoreHouseholdRepository implements HouseholdRepository {
         ),
   );
 
+  @override
+  Stream<List<String>> watchHouseholdIdsFor(String uid) => _domainErrors(
+    () => _firestore
+        .collectionGroup(membersPath)
+        // Filters on the `id` field rather than the document id: a collection
+        // group cannot be queried by document id without spelling out full
+        // paths, and this is also the constraint the rules match against to
+        // let the query through at all.
+        .where('id', isEqualTo: uid)
+        .snapshots()
+        .map((snapshot) {
+          // Sorted here rather than with an `orderBy` because ordering a
+          // filtered collection group query costs a composite index, and a
+          // user is in one or two households.
+          final memberships =
+              snapshot.docs
+                  .map(
+                    (doc) => (
+                      householdId: doc.reference.parent.parent?.id,
+                      joinedAt: Member.fromMap(doc.data()).joinedAt,
+                    ),
+                  )
+                  .toList()
+                ..sort((a, b) => a.joinedAt.compareTo(b.joinedAt));
+          return [
+            // A `members` collection outside a household is not something the
+            // rules permit, so this drops nothing the app wrote.
+            for (final membership in memberships) ?membership.householdId,
+          ];
+        }),
+  );
+
   /// Claims an unused document in the invite code index.
   ///
   /// Returns null when every attempt collided. The read and the write are in

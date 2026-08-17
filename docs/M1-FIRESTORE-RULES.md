@@ -127,6 +127,70 @@ and the join fails cleanly. Stopping after 2 leaves a household with no members,
 which is invisible to every query in the app and readable by nobody. The
 repository retries; no cleanup job is needed.
 
+## Finding your household: a collection group query
+
+Added 2026-08-17, with the household guard.
+
+A returning user has to answer "which household am I in?" before they can read
+anything inside it. The membership document at
+`households/{hid}/members/{uid}` is the only record that they belong to one,
+and it is unreachable by path because the path contains the `hid` they are
+trying to discover.
+
+Three ways out were considered:
+
+1. **Custom auth claims.** What Firebase documentation pushes hardest, because
+   rules then read the claim for free instead of paying a `get()`. Needs a
+   Cloud Function to mint them and a token refresh to propagate, so a user who
+   joins a household stays locked out until the token rolls over. Rejected: no
+   backend in this project, and the plan adds no infrastructure.
+2. **A top-level `users/{uid}` document** holding the household id. Simplest
+   query, but it makes membership two writes that can diverge, and it is a
+   second top-level collection, which `CLAUDE.md` requires approval for.
+3. **A collection group query** over `members`, filtered to the caller's own
+   uid. Chosen. The membership document stays the single source of truth: the
+   question is asked of the data directly rather than of a copy kept alongside
+   it. No new top-level collection, so the `CLAUDE.md` rule stands unamended.
+
+The query is `collectionGroup('members').where('id', '==', uid)`. It filters on
+the `id` **field**, not the document id, because a collection group cannot be
+queried by document id without spelling out full paths — and because the field
+constraint is what makes the query provably safe to the rules engine.
+
+The rule:
+
+```
+match /{path=**}/members/{uid} {
+  allow read: if signedIn() && request.auth.uid == resource.data.id;
+}
+```
+
+Rules are not filters. This passes only for a query whose constraints guarantee
+every document it could return satisfies the rule, which is why the `where`
+clause and the rule condition have to mirror each other exactly. Drop the
+`where` and Firestore refuses the whole query rather than returning a filtered
+subset.
+
+Two things a reader should know about it:
+
+- **It widens nothing.** The documents it returns are the caller's own
+  membership records, which live in households they are a member of by
+  definition, and which `isMember(hid)` already granted them.
+- **`{path=**}` is broad.** It matches any collection named `members` anywhere
+  in the database. Nothing else uses that name today; a future one would
+  inherit this rule, so the name is effectively reserved.
+
+Ordering is done on the client rather than with an `orderBy`, because ordering
+a filtered collection group query costs a composite index and a user is in one
+or two households.
+
+`firestore.indexes.json` carries the matching field override. Collection-scope
+single-field indexes are created automatically; **collection-group-scope ones
+are not**, so `members.id` has to be declared or the query fails in production
+with a missing-index error. The override repeats the collection-scope entries
+Firestore would have made on its own, because a field override replaces the
+automatic configuration for that field rather than adding to it.
+
 ## Access matrix
 
 `isMember(hid)` = `exists(/databases/$(db)/documents/households/$(hid)/members/$(request.auth.uid))`
@@ -140,6 +204,7 @@ repository retries; no cleanup job is needed.
 | `households/{hid}/relationshipTypes/{rid}` | member | member | member | member |
 | `households/{hid}/hangouts/{hgid}` | member | member | member | member |
 | `households/{hid}/plannedHangouts/{pid}` | member | member | member | member |
+| `{path=**}/members/{uid}` (collection group) | own membership only, and only for a query constrained to `id == uid` | n/a | n/a | n/a |
 | `inviteCodes/{code}` | `get` if signed in; `list` **denied** | signed in, `createdBy == uid`, id is a well-formed code | denied — regeneration is create + delete | owner of the household it points at |
 | everything else | denied | denied | denied | denied |
 
@@ -163,8 +228,9 @@ Rules to write explicitly, because they are the ones that bite:
 All done as of 2026-08-16.
 
 - `firestore.rules` — new.
-- `firestore.indexes.json` — new, empty; grows in M2/M3 when list views need
-  composite indexes.
+- `firestore.indexes.json` — new. Empty until 2026-08-17, when the
+  `members.id` collection-group field override landed for the membership
+  lookup. Grows again in M2/M3 when list views need composite indexes.
 - `firebase.json` — held only the FlutterFire block. Now also carries `firestore`
   (rules + indexes paths) and an `emulators` block: firestore 8080, auth 9099,
   UI 4000, `singleProjectMode` on.
@@ -193,6 +259,12 @@ cases that are specific to this design:
 - Non-member reads any of them: denied.
 - Unauthenticated reads any of them: denied.
 - Member of household A reads household B: denied.
+
+**Membership lookup (collection group)**
+- Own membership, queried as `where('id', '==', own uid)`: allowed.
+- The same query for somebody else's uid: denied.
+- The query with no `where` clause at all: denied.
+- Unauthenticated: denied.
 
 **Roles**
 - Owner changes another member's role: allowed.

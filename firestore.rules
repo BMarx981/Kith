@@ -191,6 +191,27 @@ service cloud.firestore {
       }
     }
 
+    // ---- membership lookup across households -----------------------------
+    //
+    // A returning user has to find their household before they are allowed to
+    // read anything inside it, and their membership document is the only
+    // record that they belong to one. This collection group match is what lets
+    // them query for their own membership documents wherever those live.
+    //
+    // Rules are not filters, so this only passes for a query whose constraints
+    // guarantee it: the caller must send where('id', '==', their own uid),
+    // which is exactly what watchHouseholdIdsFor sends. It grants no document
+    // the caller could not already read -- the results are their own
+    // membership records, in households they are a member of by definition.
+    //
+    // Note the breadth: {path=**} matches any collection named `members`
+    // anywhere in the database, so a future `members` collection somewhere
+    // else inherits this rule.
+
+    match /{path=**}/members/{uid} {
+      allow read: if signedIn() && request.auth.uid == resource.data.id;
+    }
+
     // ---- inviteCodes/{code} ----------------------------------------------
     //
     // A code -> household id pointer, holding no user data. The document id is

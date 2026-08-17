@@ -5,8 +5,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kith/features/auth/application/auth_providers.dart';
 import 'package:kith/features/auth/presentation/sign_in_screen.dart';
 import 'package:kith/features/contacts/presentation/contacts_screen.dart';
+import 'package:kith/features/household/application/household_providers.dart';
+import 'package:kith/features/household/presentation/household_onboarding_screen.dart';
+import 'package:kith/features/household/presentation/household_screen.dart';
 import 'package:kith/features/suggestions/presentation/home_screen.dart';
 import 'package:kith/routing/guards/auth_guard.dart';
+import 'package:kith/routing/guards/household_guard.dart';
 
 part 'app_router.gr.dart';
 
@@ -14,15 +18,19 @@ part 'app_router.gr.dart';
 ///
 /// Routes are declared here and nowhere else; navigation always goes through
 /// the generated typed `*Route` classes rather than raw path strings.
-/// Everything that reads household data is guarded; the sign-in screen is the
-/// one route an unauthenticated user may reach. The household-membership
-/// guard joins them once households can be created.
+/// Everything that reads household data is guarded twice: the auth guard
+/// first, then the household guard. The sign-in screen is the one route an
+/// unauthenticated user may reach, and onboarding is the one route a signed-in
+/// user without a household may reach.
 @AutoRouterConfig(replaceInRouteName: 'Screen,Route')
 class AppRouter extends RootStackRouter {
-  AppRouter({required this.authGuard});
+  AppRouter({required this.authGuard, required this.householdGuard});
 
   /// Gate on every route that needs a signed-in user.
   final AutoRouteGuard authGuard;
+
+  /// Gate on every route that reads a household, run after [authGuard].
+  final AutoRouteGuard householdGuard;
 
   @override
   List<AutoRoute> get routes => [
@@ -32,10 +40,25 @@ class AppRouter extends RootStackRouter {
       initial: true,
       guards: [
         authGuard,
+        householdGuard,
       ],
     ),
-    AutoRoute(page: ContactsRoute.page, path: '/contacts', guards: [authGuard]),
+    AutoRoute(
+      page: ContactsRoute.page,
+      path: '/contacts',
+      guards: [authGuard, householdGuard],
+    ),
+    AutoRoute(
+      page: HouseholdRoute.page,
+      path: '/household',
+      guards: [authGuard, householdGuard],
+    ),
     AutoRoute(page: SignInRoute.page, path: '/sign-in'),
+    AutoRoute(
+      page: HouseholdOnboardingRoute.page,
+      path: '/welcome',
+      guards: [authGuard],
+    ),
   ];
 }
 
@@ -46,11 +69,23 @@ class AppRouter extends RootStackRouter {
 /// the navigation the guard is holding once someone signs in. Emissions that
 /// do not change who is signed in are ignored, so the router is not disturbed
 /// by the stream simply reporting what it already reported.
+///
+/// Membership is watched for the same reason, and the subscription does double
+/// duty: the household guard reads the membership query, which only runs while
+/// something listens to it, and this is what listens.
 final appRouterProvider = Provider<AppRouter>((ref) {
-  final router = AppRouter(authGuard: AuthGuard(ref));
-  ref.listen(authStateChangesProvider, (previous, next) {
-    if (!next.hasValue || previous?.value?.id == next.value?.id) return;
-    unawaited(router.reevaluateGuards());
-  });
+  final router = AppRouter(
+    authGuard: AuthGuard(ref),
+    householdGuard: HouseholdGuard(ref),
+  );
+  ref
+    ..listen(authStateChangesProvider, (previous, next) {
+      if (!next.hasValue || previous?.value?.id == next.value?.id) return;
+      unawaited(router.reevaluateGuards());
+    })
+    ..listen(currentHouseholdIdProvider, (previous, next) {
+      if (previous == next) return;
+      unawaited(router.reevaluateGuards());
+    });
   return router;
 });

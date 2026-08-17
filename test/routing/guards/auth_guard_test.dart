@@ -8,10 +8,12 @@ import 'package:kith/data/models/auth_user.dart';
 import 'package:kith/features/auth/application/auth_providers.dart';
 import 'package:kith/features/auth/presentation/sign_in_screen.dart';
 import 'package:kith/features/contacts/presentation/contacts_screen.dart';
+import 'package:kith/features/household/application/household_providers.dart';
 import 'package:kith/features/suggestions/presentation/home_screen.dart';
 import 'package:kith/routing/app_router.dart';
 
 import '../../helpers/fake_auth_service.dart';
+import '../../helpers/fake_household_repository.dart';
 
 /// A fake whose auth stream stays silent until the test releases it, which is
 /// what a cold start looks like while Firebase restores a stored session.
@@ -30,6 +32,22 @@ class _SlowAuthService extends FakeAuthService {
 void main() {
   const user = AuthUser(id: 'uid-1', email: 'brian@example.com');
 
+  late FakeHouseholdRepository households;
+
+  // Every signed-in user in this suite already has a household, so the
+  // household guard waves them through and what these tests observe is the
+  // auth guard alone. The uid matches the one `FakeAuthService` hands the
+  // first seeded account, so a sign-in mid-test lands on the same membership.
+  setUp(() async {
+    households = FakeHouseholdRepository();
+    addTearDown(households.dispose);
+    await households.createHousehold(
+      name: 'The Marx house',
+      owner: user,
+      displayName: 'Brian',
+    );
+  });
+
   // Pumps the real app rather than a stand-in router: the guard reads the
   // auth state through `appRouterProvider`, whose subscriptions Riverpod keeps
   // paused until something watches it, and watching it is `KithApp`'s job.
@@ -38,7 +56,10 @@ void main() {
     FakeAuthService auth,
   ) async {
     final container = ProviderContainer(
-      overrides: [authServiceProvider.overrideWithValue(auth)],
+      overrides: [
+        authServiceProvider.overrideWithValue(auth),
+        householdRepositoryProvider.overrideWithValue(households),
+      ],
     );
     addTearDown(container.dispose);
 
