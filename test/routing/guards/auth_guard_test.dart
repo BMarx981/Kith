@@ -29,6 +29,24 @@ class _SlowAuthService extends FakeAuthService {
   }
 }
 
+/// A fake whose auth stream the test drives by hand, errors included.
+///
+/// Errors do not close it, which is how `Stream.map` behaves over the stream
+/// Firebase hands back: a later sign-in still arrives on the same
+/// subscription.
+class _DrivenAuthService extends FakeAuthService {
+  final controller = StreamController<AuthUser?>.broadcast();
+
+  @override
+  Stream<AuthUser?> authStateChanges() => controller.stream;
+
+  @override
+  Future<void> dispose() async {
+    await controller.close();
+    await super.dispose();
+  }
+}
+
 void main() {
   const user = AuthUser(id: 'uid-1', email: 'brian@example.com');
 
@@ -157,6 +175,38 @@ void main() {
 
       expect(find.byType(SignInScreen), findsOneWidget);
       expect(find.byType(HomeScreen), findsNothing);
+    });
+
+    testWidgets('an auth stream that fails lands somewhere', (tester) async {
+      // The navigation has to be resolved either way. Left unresolved, the
+      // app sits on the splash for ever with nothing to act on. Sign-in is
+      // where it lands because signing in is what fixes it.
+      final auth = _DrivenAuthService();
+      addTearDown(auth.dispose);
+      await pumpRouterApp(tester, auth);
+
+      auth.controller.addError(StateError('auth unavailable'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AppSplash), findsNothing);
+      expect(find.byType(SignInScreen), findsOneWidget);
+    });
+
+    testWidgets('a session arriving after a failure is let through', (
+      tester,
+    ) async {
+      final auth = _DrivenAuthService();
+      addTearDown(auth.dispose);
+      await pumpRouterApp(tester, auth);
+      auth.controller.addError(StateError('auth unavailable'));
+      await tester.pumpAndSettle();
+      expect(find.byType(SignInScreen), findsOneWidget);
+
+      auth.controller.add(user);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(HomeScreen), findsOneWidget);
+      expect(find.byType(SignInScreen), findsNothing);
     });
 
     testWidgets('guards the deeper screens too, not just the landing one', (

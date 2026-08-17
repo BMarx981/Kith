@@ -1,5 +1,6 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:kith/data/models/auth_user.dart';
 import 'package:kith/features/auth/application/auth_providers.dart';
 import 'package:kith/routing/app_router.dart';
 
@@ -10,6 +11,12 @@ import 'package:kith/routing/app_router.dart';
 /// `appRouterProvider` re-runs the guards, which resolves the held navigation
 /// and drops the sign-in page. That is what carries a user to the screen they
 /// originally asked for instead of a fixed landing page.
+///
+/// An auth state that fails to report lands on sign-in too, rather than
+/// leaving the navigation unresolved: an unresolved resolver is an app stuck
+/// on the splash for ever with nothing to act on. Signing in is the way out of
+/// it, and `Stream.map` does not close on an error, so a session arriving
+/// later still comes through the same subscription and releases the hold.
 class AuthGuard extends AutoRouteGuard {
   /// Reads the auth state through a ref that outlives every navigation.
   AuthGuard(this._ref);
@@ -28,12 +35,23 @@ class AuthGuard extends AutoRouteGuard {
     // session land on the requested screen: treating "not reported yet" as
     // signed out would bounce a returning user to the sign-in form. The router
     // shows its placeholder for the beat this takes.
-    final user = await _ref.read(authStateChangesProvider.future);
+    final AuthUser? user;
+    try {
+      user = await _ref.read(authStateChangesProvider.future);
+    } on Object {
+      _park(resolver);
+      return;
+    }
     if (user != null) {
       if (identical(_held, resolver)) _held = null;
       resolver.next();
       return;
     }
+    _park(resolver);
+  }
+
+  /// Holds [resolver] open behind the sign-in screen.
+  void _park(NavigationResolver resolver) {
     // A re-run of the navigation that is already parked: leave it parked.
     if (identical(_held, resolver)) return;
     // Something else asked to navigate while sign-in is already on screen.
