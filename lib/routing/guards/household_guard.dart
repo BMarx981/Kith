@@ -13,6 +13,12 @@ import 'package:kith/routing/app_router.dart';
 ///
 /// Runs after the auth guard, so there is always a signed-in user by the time
 /// it is consulted.
+///
+/// A membership query that fails lands on onboarding too, rather than leaving
+/// the navigation unresolved: an unresolved resolver is an app stuck on the
+/// splash for ever with nothing to act on. Onboarding withholds its form while
+/// membership is unreadable, so this cannot become a second household created
+/// alongside one that is merely out of reach.
 class HouseholdGuard extends AutoRouteGuard {
   /// Reads the membership through a ref that outlives every navigation.
   HouseholdGuard(this._ref);
@@ -30,12 +36,25 @@ class HouseholdGuard extends AutoRouteGuard {
     // Waiting on the first emission is what stops a cold start bouncing an
     // existing member into onboarding: until the membership query answers,
     // "no household" and "not asked yet" look alike.
-    final householdIds = await _ref.read(householdIdsProvider.future);
+    final List<String> householdIds;
+    try {
+      householdIds = await _ref.read(householdIdsProvider.future);
+    } on Object {
+      // The failure itself is read off the provider by the screen this parks
+      // on, which is also where retrying lives.
+      _park(resolver);
+      return;
+    }
     if (householdIds.isNotEmpty) {
       if (identical(_held, resolver)) _held = null;
       resolver.next();
       return;
     }
+    _park(resolver);
+  }
+
+  /// Holds [resolver] open behind onboarding.
+  void _park(NavigationResolver resolver) {
     // A re-run of the navigation that is already parked: leave it parked.
     if (identical(_held, resolver)) return;
     // Something else asked to navigate while onboarding is already on screen.

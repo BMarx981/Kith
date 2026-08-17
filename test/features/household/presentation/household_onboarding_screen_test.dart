@@ -198,6 +198,55 @@ void main() {
       await tester.pumpAndSettle();
     });
 
+    testWidgets('withholds the form when membership cannot be read', (
+      tester,
+    ) async {
+      // Offering the form here invites a second household to be created
+      // alongside the one that is merely unreadable right now.
+      repository.membershipFailure = const PermissionFailure('refused');
+
+      await pumpScreen(tester);
+      await tester.pump();
+
+      expect(find.byKey(HouseholdOnboardingScreen.nameFieldKey), findsNothing);
+      expect(
+        find.byKey(HouseholdOnboardingScreen.submitButtonKey),
+        findsNothing,
+      );
+      expect(find.text('Sign in again to continue.'), findsOneWidget);
+      expect(find.byKey(HouseholdOnboardingScreen.retryKey), findsOneWidget);
+    });
+
+    testWidgets('retrying brings the form back once it reads', (tester) async {
+      repository.membershipFailure = const PermissionFailure('refused');
+      await pumpScreen(tester);
+      await tester.pump();
+      expect(find.byKey(HouseholdOnboardingScreen.retryKey), findsOneWidget);
+
+      repository.membershipFailure = null;
+      await tester.tap(find.byKey(HouseholdOnboardingScreen.retryKey));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(HouseholdOnboardingScreen.nameFieldKey),
+        findsOneWidget,
+      );
+      expect(find.byKey(HouseholdOnboardingScreen.retryKey), findsNothing);
+    });
+
+    testWidgets('still offers sign-out when membership is unreadable', (
+      tester,
+    ) async {
+      repository.membershipFailure = const PermissionFailure('refused');
+      await pumpScreen(tester);
+      await tester.pump();
+
+      await tester.tap(find.byKey(HouseholdOnboardingScreen.signOutKey));
+      await tester.pump();
+
+      expect(auth.currentUser, isNull);
+    });
+
     testWidgets('offers a way back out for the wrong account', (tester) async {
       await pumpScreen(tester);
 

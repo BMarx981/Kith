@@ -34,9 +34,15 @@ class FakeHouseholdRepository implements HouseholdRepository {
   /// observe the form mid-request.
   Completer<void>? gate;
 
-  /// Error every stream emits instead of data, when set. Stands in for a
-  /// query the rules refused or a document that would not parse.
+  /// Error the household and member streams emit instead of data, when set.
+  /// Stands in for a query the rules refused or a document that would not
+  /// parse.
   Failure? streamFailure;
+
+  /// Error the membership query emits instead of data, when set. Separate
+  /// from [streamFailure] because the two fail independently: the membership
+  /// lookup is a collection group query with a rule of its own.
+  Failure? membershipFailure;
 
   final _memberships = StreamController<void>.broadcast();
   var _nextId = 0;
@@ -85,33 +91,38 @@ class FakeHouseholdRepository implements HouseholdRepository {
 
   @override
   Stream<Household?> watchHousehold(String householdId) => _failOr(
+    streamFailure,
     () => _onMembershipChange().map((_) => households[householdId]),
   );
 
   @override
   Stream<List<Member>> watchMembers(String householdId) => _failOr(
+    streamFailure,
     () => _onMembershipChange().map(
       (_) => List.of(members[householdId] ?? const <Member>[]),
     ),
   );
 
   @override
-  Stream<List<String>> watchHouseholdIdsFor(String uid) => _onMembershipChange()
-      .map(
-        (_) => [
-          for (final entry in members.entries)
-            if (entry.value.any((member) => member.id == uid)) entry.key,
-        ],
-      );
+  Stream<List<String>> watchHouseholdIdsFor(String uid) => _failOr(
+    membershipFailure,
+    () => _onMembershipChange().map(
+      (_) => [
+        for (final entry in members.entries)
+          if (entry.value.any((member) => member.id == uid)) entry.key,
+      ],
+    ),
+  );
 
   /// Releases the change stream. Register with `addTearDown`.
   Future<void> dispose() => _memberships.close();
 
-  /// [source], or the injected failure if one is set.
-  Stream<T> _failOr<T>(Stream<T> Function() source) {
-    final failure = streamFailure;
-    return failure == null ? source() : Stream.error(failure);
-  }
+  /// [source], or [failure] if one is set.
+  ///
+  /// Read at subscription time, so clearing the failure and resubscribing is
+  /// what a successful retry looks like.
+  Stream<T> _failOr<T>(Failure? failure, Stream<T> Function() source) =>
+      failure == null ? source() : Stream.error(failure);
 
   /// Emits now, then again on every membership change, the way a Firestore
   /// query does.

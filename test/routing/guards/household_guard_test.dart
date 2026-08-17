@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kith/app/app.dart';
 import 'package:kith/app/widgets/app_splash.dart';
+import 'package:kith/core/result/failure.dart';
 import 'package:kith/data/models/auth_user.dart';
 import 'package:kith/features/auth/application/auth_providers.dart';
 import 'package:kith/features/auth/presentation/sign_in_screen.dart';
@@ -147,6 +148,43 @@ void main() {
       expect(find.byType(HomeScreen), findsOneWidget);
       expect(find.byType(HouseholdOnboardingScreen), findsNothing);
       // No stale onboarding page underneath to come back on a system back.
+      expect(router.stack.map((page) => page.routeData.name), ['HomeRoute']);
+    });
+
+    testWidgets('a membership query that fails lands somewhere', (
+      tester,
+    ) async {
+      // The navigation has to be resolved either way. Left unresolved, the
+      // app sits on the splash for ever with nothing to act on.
+      final households = emptyRepository()
+        ..membershipFailure = const PermissionFailure('refused');
+
+      await pumpRouterApp(tester, households);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AppSplash), findsNothing);
+      expect(find.byType(HouseholdOnboardingScreen), findsOneWidget);
+    });
+
+    testWidgets('a membership query that recovers releases the hold', (
+      tester,
+    ) async {
+      final households = emptyRepository()
+        ..membershipFailure = const PermissionFailure('refused');
+      final router = await pumpRouterApp(tester, households);
+      await tester.pumpAndSettle();
+      expect(find.byType(HouseholdOnboardingScreen), findsOneWidget);
+
+      households.membershipFailure = null;
+      await households.createHousehold(
+        name: 'The Marx house',
+        owner: user,
+        displayName: 'Brian',
+      );
+      await tester.tap(find.byKey(HouseholdOnboardingScreen.retryKey));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(HomeScreen), findsOneWidget);
       expect(router.stack.map((page) => page.routeData.name), ['HomeRoute']);
     });
 
