@@ -97,6 +97,10 @@ enum AuthFailureReason {
   /// Too many attempts in too short a window; the backend is throttling.
   tooManyRequests,
 
+  /// The backend could not be reached at all. Worth retrying as-is, and
+  /// distinct from [unknown]: nothing about the attempt itself was wrong.
+  network,
+
   /// This sign-in method is switched off in the Firebase console, or is not
   /// wired up in this build.
   providerUnavailable,

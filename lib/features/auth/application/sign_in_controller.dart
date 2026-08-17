@@ -92,8 +92,16 @@ class SignInController extends Notifier<SignInState> {
   }
 
   /// Widens any [Failure] to the [AuthFailure] the screen knows how to render.
+  ///
+  /// A [NetworkFailure] keeps its meaning on the way through. Collapsing it
+  /// into [AuthFailureReason.unknown] would tell someone with no signal that
+  /// something went wrong, which is true of every failure there is.
   static AuthFailure _asAuthFailure(Failure failure) => switch (failure) {
     final AuthFailure authFailure => authFailure,
+    NetworkFailure() => AuthFailure(
+      AuthFailureReason.network,
+      failure.message,
+    ),
     _ => AuthFailure(AuthFailureReason.unknown, failure.message),
   };
 }

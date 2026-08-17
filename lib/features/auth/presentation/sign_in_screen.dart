@@ -1,6 +1,8 @@
 import 'package:auto_route/auto_route.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:kith/core/result/failure.dart';
 import 'package:kith/features/auth/application/sign_in_controller.dart';
 import 'package:kith/features/auth/application/sign_in_state.dart';
 import 'package:kith/features/auth/domain/credential_validator.dart';
@@ -163,6 +165,21 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                           color: theme.colorScheme.error,
                         ),
                       ),
+                      // Debug builds only, and only when the copy above has
+                      // nothing specific to say: an unrecognised code is
+                      // otherwise captured and thrown away, leaving nothing to
+                      // work out what the backend actually objected to.
+                      if (kDebugMode &&
+                          failure.reason == AuthFailureReason.unknown) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          failure.message,
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
                     ],
                     const SizedBox(height: 24),
                     FilledButton(

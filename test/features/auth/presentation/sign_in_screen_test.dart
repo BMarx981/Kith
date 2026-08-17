@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kith/core/result/failure.dart';
 import 'package:kith/core/result/result.dart';
 import 'package:kith/data/models/auth_user.dart';
 import 'package:kith/features/auth/application/auth_providers.dart';
@@ -50,6 +51,54 @@ void main() {
     await tester.enterText(find.byKey(SignInScreen.emailFieldKey), email);
     await tester.enterText(find.byKey(SignInScreen.passwordFieldKey), password);
   }
+
+  group('SignInScreen diagnostics', () {
+    testWidgets('shows the underlying error when the copy cannot say what '
+        'went wrong', (tester) async {
+      // Debug builds only. Without this the raw Firebase text is captured and
+      // then thrown away, so an unrecognised code is indistinguishable from
+      // every other unrecognised code.
+      auth.nextFailure = const AuthFailure(
+        AuthFailureReason.unknown,
+        'An internal error has occurred. [ CONFIGURATION_NOT_FOUND ]',
+      );
+      await pumpScreen(tester);
+      await enterCredentials(
+        tester,
+        email: 'brian@example.com',
+        password: 'hunter22',
+      );
+
+      await tester.tap(find.byKey(SignInScreen.submitButtonKey));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Something went wrong. Try again.'), findsOneWidget);
+      expect(
+        find.textContaining('CONFIGURATION_NOT_FOUND'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('keeps the log message out of a failure it has copy for', (
+      tester,
+    ) async {
+      auth.nextFailure = const AuthFailure(
+        AuthFailureReason.invalidCredentials,
+        'FIREBASE_INTERNAL_DETAIL',
+      );
+      await pumpScreen(tester);
+      await enterCredentials(
+        tester,
+        email: 'brian@example.com',
+        password: 'hunter22',
+      );
+
+      await tester.tap(find.byKey(SignInScreen.submitButtonKey));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('FIREBASE_INTERNAL_DETAIL'), findsNothing);
+    });
+  });
 
   group('SignInScreen', () {
     testWidgets('opens on the sign-in form', (tester) async {

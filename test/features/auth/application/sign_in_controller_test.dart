@@ -164,16 +164,15 @@ void main() {
       );
     });
 
-    test('widens a non-auth failure to an unknown AuthFailure', () async {
-      // Nothing in the interface promises an AuthFailure specifically, so a
-      // service that returns some other Failure still has to render.
+    /// Submits against a service that fails with [failure].
+    Future<AuthFailure?> failureFrom(Failure failure) async {
       final auth = _MockAuthService();
       when(
         () => auth.signInWithEmail(
           email: any(named: 'email'),
           password: any(named: 'password'),
         ),
-      ).thenAnswer((_) async => const Err(NetworkFailure('offline')));
+      ).thenAnswer((_) async => Err(failure));
       final container = ProviderContainer(
         overrides: [authServiceProvider.overrideWithValue(auth)],
       );
@@ -182,12 +181,29 @@ void main() {
       await container
           .read(signInControllerProvider.notifier)
           .submit(email: 'brian@example.com', password: 'hunter22');
+      return stateOf(container).failure;
+    }
 
+    test('keeps an unreachable backend distinguishable', () async {
+      // Flattened into `unknown` this reads as "something went wrong", which
+      // tells someone with no signal nothing about why.
       expect(
-        stateOf(container).failure,
-        const AuthFailure(AuthFailureReason.unknown, 'offline'),
+        await failureFrom(const NetworkFailure('offline')),
+        const AuthFailure(AuthFailureReason.network, 'offline'),
       );
     });
+
+    test(
+      'widens any other non-auth failure to an unknown AuthFailure',
+      () async {
+        // Nothing in the interface promises an AuthFailure specifically, so a
+        // service that returns some other Failure still has to render.
+        expect(
+          await failureFrom(const UnknownFailure('boom')),
+          const AuthFailure(AuthFailureReason.unknown, 'boom'),
+        );
+      },
+    );
   });
 
   group('SignInController.sendPasswordReset', () {

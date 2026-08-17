@@ -118,6 +118,22 @@ void main() {
           AuthFailureReason.providerUnavailable,
           'boom',
         ),
+        // What a project whose Authentication product was never provisioned
+        // returns. Unmapped it reads as "something went wrong", which sends
+        // whoever hits it looking for a bug in the app instead of at the
+        // Firebase console.
+        'configuration-not-found': AuthFailure(
+          AuthFailureReason.providerUnavailable,
+          'boom',
+        ),
+        'api-key-not-valid': AuthFailure(
+          AuthFailureReason.providerUnavailable,
+          'boom',
+        ),
+        'app-not-authorized': AuthFailure(
+          AuthFailureReason.providerUnavailable,
+          'boom',
+        ),
         'network-request-failed': NetworkFailure('boom'),
         'something-new': AuthFailure(AuthFailureReason.unknown, 'boom'),
       };

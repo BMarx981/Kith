@@ -16,6 +16,8 @@ String authFailureMessage(AuthFailure failure) => switch (failure.reason) {
   AuthFailureReason.userDisabled => 'That account has been disabled.',
   AuthFailureReason.tooManyRequests =>
     'Too many attempts. Wait a minute, then try again.',
+  AuthFailureReason.network =>
+    'You appear to be offline. Try again once you are connected.',
   AuthFailureReason.providerUnavailable =>
     'That way of signing in is not available yet.',
   AuthFailureReason.cancelled => 'Sign-in was cancelled.',

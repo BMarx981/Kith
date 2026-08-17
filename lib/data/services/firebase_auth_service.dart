@@ -138,7 +138,15 @@ class FirebaseAuthService implements AuthService {
         AuthFailureReason.tooManyRequests,
         message,
       ),
-      'operation-not-allowed' => AuthFailure(
+      // `operation-not-allowed` is the provider being switched off. The
+      // rest are the project itself not being set up: Authentication never
+      // provisioned, or an API key that does not belong to it. All of them
+      // mean the same thing to whoever is looking at the screen, and none of
+      // them are worth retrying.
+      'operation-not-allowed' ||
+      'configuration-not-found' ||
+      'api-key-not-valid' ||
+      'app-not-authorized' => AuthFailure(
         AuthFailureReason.providerUnavailable,
         message,
       ),
