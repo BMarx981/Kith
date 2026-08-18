@@ -8,6 +8,7 @@ library;
 
 export 'package:kith/app/theme/freshness_colors.dart';
 export 'package:kith/app/theme/kith_colors.dart';
+export 'package:kith/app/theme/kith_icons.dart';
 export 'package:kith/app/theme/kith_radius.dart';
 export 'package:kith/app/theme/kith_spacing.dart';
 export 'package:kith/app/theme/kith_theme.dart';

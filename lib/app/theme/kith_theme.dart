@@ -106,19 +106,49 @@ abstract final class KithTheme {
         ),
       ),
 
+      // Selection is carried by the border and the label, never by a fill or
+      // a checkmark: a filled, ticked chip is one of the loudest Material
+      // tells, and the accent reads clearly enough on its own.
       chipTheme: ChipThemeData(
         backgroundColor: Colors.transparent,
-        side: BorderSide(color: scheme.outline),
+        selectedColor: Colors.transparent,
+        showCheckmark: false,
+        side: WidgetStateBorderSide.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? BorderSide(color: scheme.primary, width: 1.5)
+              : BorderSide(color: scheme.outline),
+        ),
         shape: const StadiumBorder(),
         elevation: 0,
         pressElevation: 0,
         labelStyle: text.bodySmall?.copyWith(
-          color: scheme.onSurfaceVariant,
+          color: WidgetStateColor.resolveWith(
+            (states) => states.contains(WidgetState.selected)
+                ? scheme.primary
+                : scheme.onSurfaceVariant,
+          ),
           fontWeight: FontWeight.w600,
         ),
         padding: const EdgeInsets.symmetric(
           horizontal: KithSpacing.xs,
           vertical: KithSpacing.xxs,
+        ),
+      ),
+
+      // The one filled accent surface in the app, and the only control that
+      // floats over content. Flat and squared to 12 like everything else, so
+      // it reads as part of the page rather than as a Material dropped onto
+      // it.
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: scheme.primary,
+        foregroundColor: scheme.onPrimary,
+        elevation: 0,
+        focusElevation: 0,
+        hoverElevation: 0,
+        highlightElevation: 0,
+        splashColor: Colors.transparent,
+        shape: const RoundedRectangleBorder(
+          borderRadius: KithRadius.surfaceBorder,
         ),
       ),
 

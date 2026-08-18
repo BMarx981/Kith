@@ -2,6 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kith/app/theme.dart';
 
+/// The chip theme carries its selected and unselected treatments in
+/// widget-state properties, which are typed as the plain value they stand in
+/// for. These read the branch a given state resolves to.
+BorderSide? chipSide(ChipThemeData chip, Set<WidgetState> states) =>
+    (chip.side! as WidgetStateProperty<BorderSide?>).resolve(states);
+
+Color chipLabelColor(ChipThemeData chip, Set<WidgetState> states) =>
+    (chip.labelStyle!.color! as WidgetStateColor).resolve(states);
+
 void main() {
   group('KithTheme', () {
     test('light theme uses a light Material 3 scheme', () {
@@ -232,8 +241,48 @@ void main() {
 
         expect(chip.backgroundColor, Colors.transparent);
         expect(chip.shape, isA<StadiumBorder>());
-        expect(chip.side?.color, theme.colorScheme.outline);
-        expect(chip.labelStyle?.color, theme.colorScheme.onSurfaceVariant);
+        expect(chipSide(chip, const {})?.color, theme.colorScheme.outline);
+        expect(
+          chipLabelColor(chip, const {}),
+          theme.colorScheme.onSurfaceVariant,
+        );
+      }
+    });
+
+    test(
+      'a selected chip is marked by its border, not by a fill or a tick',
+      () {
+        const selected = {WidgetState.selected};
+
+        for (final theme in [KithTheme.light, KithTheme.dark]) {
+          final chip = theme.chipTheme;
+
+          expect(chip.selectedColor, Colors.transparent);
+          expect(chip.showCheckmark, isFalse);
+          expect(chipSide(chip, selected)?.color, theme.colorScheme.primary);
+          expect(chipSide(chip, selected)?.width, greaterThan(1));
+          expect(chipLabelColor(chip, selected), theme.colorScheme.primary);
+        }
+      },
+    );
+
+    test('the floating action button is flat and wears the accent', () {
+      for (final theme in [KithTheme.light, KithTheme.dark]) {
+        final fab = theme.floatingActionButtonTheme;
+
+        expect(fab.backgroundColor, theme.colorScheme.primary);
+        expect(fab.foregroundColor, theme.colorScheme.onPrimary);
+        expect(fab.elevation, 0);
+        expect(fab.highlightElevation, 0);
+        expect(fab.splashColor, Colors.transparent);
+        expect(
+          fab.shape,
+          isA<RoundedRectangleBorder>().having(
+            (shape) => shape.borderRadius,
+            'borderRadius',
+            KithRadius.surfaceBorder,
+          ),
+        );
       }
     });
 

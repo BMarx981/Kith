@@ -1,10 +1,15 @@
 import 'dart:async';
 
 import 'package:auto_route/auto_route.dart';
+// Key, referenced by the generated route arguments class for the one
+// route that takes a parameter. The part file has no imports of its own.
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kith/features/auth/application/auth_providers.dart';
 import 'package:kith/features/auth/presentation/sign_in_screen.dart';
+import 'package:kith/features/contacts/presentation/contact_editor_screen.dart';
 import 'package:kith/features/contacts/presentation/contacts_screen.dart';
+import 'package:kith/features/contacts/presentation/relationship_types_screen.dart';
 import 'package:kith/features/household/application/household_providers.dart';
 import 'package:kith/features/household/presentation/household_onboarding_screen.dart';
 import 'package:kith/features/household/presentation/household_screen.dart';
@@ -46,6 +51,18 @@ class AppRouter extends RootStackRouter {
     AutoRoute(
       page: ContactsRoute.page,
       path: '/contacts',
+      guards: [authGuard, householdGuard],
+    ),
+    AutoRoute(
+      page: ContactEditorRoute.page,
+      // The add form and the edit form are the same screen, so they are the
+      // same route: the segment is absent when there is nothing to edit yet.
+      path: '/contacts/edit/:contactId',
+      guards: [authGuard, householdGuard],
+    ),
+    AutoRoute(
+      page: RelationshipTypesRoute.page,
+      path: '/contacts/labels',
       guards: [authGuard, householdGuard],
     ),
     AutoRoute(

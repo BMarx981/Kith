@@ -9,6 +9,7 @@ import 'package:kith/data/models/auth_user.dart';
 import 'package:kith/data/models/household.dart';
 import 'package:kith/data/models/member.dart';
 import 'package:kith/data/models/member_role.dart';
+import 'package:kith/data/repositories/firestore_errors.dart';
 import 'package:kith/data/repositories/household_repository.dart';
 import 'package:kith/features/household/domain/invite_code.dart';
 
@@ -63,7 +64,7 @@ class FirestoreHouseholdRepository implements HouseholdRepository {
       return const Err(ValidationFailure('Enter the name to show others.'));
     }
 
-    return _guard(() async {
+    return FirestoreErrors.guard(() async {
       final now = _clock.now().toUtc();
       // The id is drawn locally because the index entry has to name the
       // household before the household document exists. See
@@ -116,7 +117,7 @@ class FirestoreHouseholdRepository implements HouseholdRepository {
       return const Err(ValidationFailure('Enter the name to show others.'));
     }
 
-    return _guard(() async {
+    return FirestoreErrors.guard(() async {
       final entry = await _firestore
           .collection(inviteCodesPath)
           .doc(inviteCode.value)
@@ -157,32 +158,40 @@ class FirestoreHouseholdRepository implements HouseholdRepository {
   }
 
   @override
-  Stream<Household?> watchHousehold(String householdId) => _domainErrors(
-    () =>
-        _firestore.collection(householdsPath).doc(householdId).snapshots().map((
-          snapshot,
-        ) {
-          final data = snapshot.data();
-          return data == null ? null : Household.fromMap(data);
-        }),
-  );
+  Stream<Household?> watchHousehold(String householdId) =>
+      FirestoreErrors.domainErrors(
+        () => _firestore
+            .collection(householdsPath)
+            .doc(householdId)
+            .snapshots()
+            .map((
+              snapshot,
+            ) {
+              final data = snapshot.data();
+              return data == null ? null : Household.fromMap(data);
+            }),
+      );
 
   @override
-  Stream<List<Member>> watchMembers(String householdId) => _domainErrors(
-    () => _firestore
-        .collection(householdsPath)
-        .doc(householdId)
-        .collection(membersPath)
-        .orderBy('joinedAt')
-        .snapshots()
-        .map(
-          (snapshot) =>
-              snapshot.docs.map((doc) => Member.fromMap(doc.data())).toList(),
-        ),
-  );
+  Stream<List<Member>> watchMembers(String householdId) =>
+      FirestoreErrors.domainErrors(
+        () => _firestore
+            .collection(householdsPath)
+            .doc(householdId)
+            .collection(membersPath)
+            .orderBy('joinedAt')
+            .snapshots()
+            .map(
+              (snapshot) => snapshot.docs
+                  .map((doc) => Member.fromMap(doc.data()))
+                  .toList(),
+            ),
+      );
 
   @override
-  Stream<List<String>> watchHouseholdIdsFor(String uid) => _domainErrors(
+  Stream<List<String>> watchHouseholdIdsFor(
+    String uid,
+  ) => FirestoreErrors.domainErrors(
     () => _firestore
         .collectionGroup(membersPath)
         // Filters on the `id` field rather than the document id: a collection
@@ -269,56 +278,4 @@ class FirestoreHouseholdRepository implements HouseholdRepository {
   static const _noSuchCode = NotFoundFailure(
     'That invite code does not match a household.',
   );
-
-  /// Runs [body], turning anything Firestore throws into a [Failure].
-  static Future<Result<T>> _guard<T>(Future<Result<T>> Function() body) async {
-    try {
-      return await body();
-    } on Object catch (error) {
-      return Err(_failureFrom(error));
-    }
-  }
-
-  /// Re-emits the stream [source] builds, mapping Firestore errors onto domain
-  /// failures so a listener never has to catch a `FirebaseException`.
-  ///
-  /// [source] is a callback rather than a stream because opening a query can
-  /// throw before there is a stream to attach a handler to.
-  static Stream<T> _domainErrors<T>(Stream<T> Function() source) {
-    final Stream<T> stream;
-    try {
-      stream = source();
-    } on Object catch (error, stackTrace) {
-      return Stream.error(_failureFrom(error), stackTrace);
-    }
-    return stream.transform(
-      StreamTransformer<T, T>.fromHandlers(
-        handleError: (error, stackTrace, sink) =>
-            sink.addError(_failureFrom(error), stackTrace),
-      ),
-    );
-  }
-
-  /// Maps anything thrown by a call or emitted as a stream error onto the
-  /// domain failure that describes it.
-  ///
-  /// A document that will not parse arrives here too, as whatever `fromMap`
-  /// threw, and is reported as unknown rather than pretending to be a
-  /// backend error.
-  static Failure _failureFrom(Object error) {
-    if (error is! FirebaseException) {
-      return UnknownFailure('Firestore call failed.', cause: error);
-    }
-    final message = error.message ?? error.code;
-    return switch (error.code) {
-      'permission-denied' => PermissionFailure(message),
-      'not-found' => NotFoundFailure(message),
-      'already-exists' => ConflictFailure(message),
-      'unavailable' ||
-      'deadline-exceeded' ||
-      'aborted' ||
-      'cancelled' => NetworkFailure(message),
-      _ => UnknownFailure(message, cause: error),
-    };
-  }
 }

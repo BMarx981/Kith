@@ -5,8 +5,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kith/data/models/auth_user.dart';
+import 'package:kith/data/models/contact.dart';
+import 'package:kith/data/models/contact_priority.dart';
+import 'package:kith/data/models/relationship_type.dart';
 import 'package:kith/features/auth/application/auth_providers.dart';
+import 'package:kith/features/contacts/application/contact_providers.dart';
+import 'package:kith/features/contacts/domain/cadence.dart';
+import 'package:kith/features/contacts/presentation/contact_editor_screen.dart';
 import 'package:kith/features/contacts/presentation/contacts_screen.dart';
+import 'package:kith/features/contacts/presentation/relationship_types_screen.dart';
 import 'package:kith/features/household/application/household_providers.dart';
 import 'package:kith/features/household/presentation/household_screen.dart';
 import 'package:kith/features/suggestions/presentation/home_screen.dart';
@@ -14,7 +21,9 @@ import 'package:kith/routing/app_router.dart';
 import 'package:kith/routing/guards/auth_guard.dart';
 
 import '../helpers/fake_auth_service.dart';
+import '../helpers/fake_contact_repository.dart';
 import '../helpers/fake_household_repository.dart';
+import '../helpers/fake_relationship_type_repository.dart';
 
 /// Stands in for the real guards so these tests describe the route graph
 /// rather than who is signed in or where they belong; each guard has its own
@@ -44,6 +53,8 @@ void main() {
       expect(paths, {
         'HomeRoute': '/',
         'ContactsRoute': '/contacts',
+        'ContactEditorRoute': '/contacts/edit/:contactId',
+        'RelationshipTypesRoute': '/contacts/labels',
         'HouseholdRoute': '/household',
         'SignInRoute': '/sign-in',
         'HouseholdOnboardingRoute': '/welcome',
@@ -69,6 +80,8 @@ void main() {
       expect(guarded, {
         'HomeRoute': 2,
         'ContactsRoute': 2,
+        'ContactEditorRoute': 2,
+        'RelationshipTypesRoute': 2,
         'HouseholdRoute': 2,
         'SignInRoute': 0,
         'HouseholdOnboardingRoute': 1,
@@ -89,10 +102,24 @@ void main() {
     testWidgets('navigates to contacts via the generated typed route', (
       tester,
     ) async {
+      final auth = FakeAuthService(initialUser: user);
+      addTearDown(auth.dispose);
+      final contacts = FakeContactRepository();
+      addTearDown(contacts.dispose);
+      final labels = FakeRelationshipTypeRepository();
+      addTearDown(labels.dispose);
       final router = buildRouter();
 
       await tester.pumpWidget(
-        MaterialApp.router(routerConfig: router.config()),
+        ProviderScope(
+          overrides: [
+            authServiceProvider.overrideWithValue(auth),
+            currentHouseholdIdProvider.overrideWithValue('hid-1'),
+            contactRepositoryProvider.overrideWithValue(contacts),
+            relationshipTypeRepositoryProvider.overrideWithValue(labels),
+          ],
+          child: MaterialApp.router(routerConfig: router.config()),
+        ),
       );
       await tester.pumpAndSettle();
 
@@ -102,6 +129,82 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(ContactsScreen), findsOneWidget);
+
+      unawaited(router.push(const RelationshipTypesRoute()));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(RelationshipTypesScreen), findsOneWidget);
+
+      unawaited(router.push(ContactEditorRoute(contactId: 'cid-1')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ContactEditorScreen), findsOneWidget);
+    });
+
+    testWidgets('the contact list reaches the editor and the labels', (
+      tester,
+    ) async {
+      final auth = FakeAuthService(initialUser: user);
+      addTearDown(auth.dispose);
+      final contacts = FakeContactRepository();
+      addTearDown(contacts.dispose);
+      final labels = FakeRelationshipTypeRepository();
+      addTearDown(labels.dispose);
+      labels.seed(
+        RelationshipType(
+          id: 'rid-1',
+          name: 'Friend',
+          sortOrder: 0,
+          createdAt: DateTime.utc(2026, 8),
+        ),
+      );
+      contacts.seed(
+        Contact(
+          id: 'cid-1',
+          name: 'Marcus',
+          relationshipTypeId: 'rid-1',
+          cadence: Cadence.monthly,
+          priority: ContactPriority.normal,
+          createdAt: DateTime.utc(2026, 8),
+          updatedAt: DateTime.utc(2026, 8),
+        ),
+      );
+      final router = buildRouter();
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authServiceProvider.overrideWithValue(auth),
+            currentHouseholdIdProvider.overrideWithValue('hid-1'),
+            contactRepositoryProvider.overrideWithValue(contacts),
+            relationshipTypeRepositoryProvider.overrideWithValue(labels),
+          ],
+          child: MaterialApp.router(routerConfig: router.config()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(HomeScreen.contactsKey));
+      await tester.pumpAndSettle();
+      expect(find.byType(ContactsScreen), findsOneWidget);
+
+      await tester.tap(find.byKey(ContactsScreen.labelsKey));
+      await tester.pumpAndSettle();
+      expect(find.byType(RelationshipTypesScreen), findsOneWidget);
+
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(ContactsScreen.addKey));
+      await tester.pumpAndSettle();
+      expect(find.text('Add a contact'), findsOneWidget);
+
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Marcus'));
+      await tester.pumpAndSettle();
+      expect(find.text('Edit contact'), findsOneWidget);
     });
 
     testWidgets('the home screen action reaches the household', (

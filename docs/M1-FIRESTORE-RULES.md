@@ -200,8 +200,8 @@ automatic configuration for that field rather than adding to it.
 |---|---|---|---|---|
 | `households/{hid}` | member | signed in, `createdBy == uid`, `inviteCode` matches an index doc they own | owner; `id`/`createdAt`/`createdBy` immutable | denied in v1 |
 | `households/{hid}/members/{uid}` | member | self only, and either `joinedWithCode` equals the household's current code with `role == 'member'`, or the household's `createdBy == uid` with `role == 'owner'` | self (`displayName`, `email`, `photoUrl`), or owner (`role`); `id`/`joinedAt` immutable | self (leave), or owner (remove) |
-| `households/{hid}/contacts/{cid}` | member | member | member | member |
-| `households/{hid}/relationshipTypes/{rid}` | member | member | member | member |
+| `households/{hid}/contacts/{cid}` | member | member, valid shape, `id == cid` | member, valid shape; `id`/`createdAt` immutable | **denied** — archiving is the removal the app offers |
+| `households/{hid}/relationshipTypes/{rid}` | member | member, valid shape, `id == rid` | member, valid shape; `id`/`createdAt` immutable | member |
 | `households/{hid}/hangouts/{hgid}` | member | member | member | member |
 | `households/{hid}/plannedHangouts/{pid}` | member | member | member | member |
 | `{path=**}/members/{uid}` (collection group) | own membership only, and only for a query constrained to `id == uid` | n/a | n/a | n/a |
@@ -222,6 +222,21 @@ Rules to write explicitly, because they are the ones that bite:
   client writing a 10 MB string into `name`.
 - **Terminal deny.** No wildcard `match /{document=**}` allow. Anything not
   matched above is refused.
+- **No per-member ownership inside a household.** Any member may write any
+  contact and any label. That is the product: two adults edit one list.
+  Deleting a label and reassigning the contacts filed under it is one client
+  batch, which is why both writes are permitted to the same member; rules
+  cannot check that the batch is well formed, and that guarantee stays the
+  repository's.
+- **Contacts are never hard-deleted.** `allow delete: if false`, because a
+  contact's hangouts are the household's history and deleting the person would
+  orphan them. `isArchived` is the soft delete.
+
+Amended 2026-08-18, when M2 landed the contact and label models: those two
+paths moved from "membership is the whole gate" to full shape validation
+mirroring `lib/data/models/contact.dart` and
+`lib/data/models/relationship_type.dart`. `hangouts` and `plannedHangouts`
+still gate on membership alone, and tighten in M3.
 
 ## Repository / config changes
 
@@ -319,6 +334,7 @@ touches the real backend, and it is the next action here.
 - The `HouseholdRepository` implementation. Rules define the contract; the
   repository comes next and is tested against `fake_cloud_firestore`, which does
   not evaluate rules.
-- Storage rules for contact photos — M2, when uploads exist.
+- Storage rules. Contact photos were cut from the plan on 2026-08-18, so the
+  app uses no Storage bucket and there is nothing to write rules for.
 - App Check. Worth it only if abuse actually shows up.
 - Any Cloud Function.

@@ -11,6 +11,59 @@
 part of 'app_router.dart';
 
 /// generated route for
+/// [ContactEditorScreen]
+class ContactEditorRoute extends PageRouteInfo<ContactEditorRouteArgs> {
+  ContactEditorRoute({
+    String? contactId,
+    Key? key,
+    List<PageRouteInfo>? children,
+  }) : super(
+         ContactEditorRoute.name,
+         args: ContactEditorRouteArgs(contactId: contactId, key: key),
+         rawPathParams: {'contactId': contactId},
+         initialChildren: children,
+       );
+
+  static const String name = 'ContactEditorRoute';
+
+  static PageInfo page = PageInfo(
+    name,
+    builder: (data) {
+      final pathParams = data.inheritedPathParams;
+      final args = data.argsAs<ContactEditorRouteArgs>(
+        orElse: () => ContactEditorRouteArgs(
+          contactId: pathParams.optString('contactId'),
+        ),
+      );
+      return ContactEditorScreen(contactId: args.contactId, key: args.key);
+    },
+  );
+}
+
+class ContactEditorRouteArgs {
+  const ContactEditorRouteArgs({this.contactId, this.key});
+
+  final String? contactId;
+
+  final Key? key;
+
+  @override
+  String toString() {
+    return 'ContactEditorRouteArgs{contactId: $contactId, key: $key}';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is! ContactEditorRouteArgs) return false;
+    return contactId == other.contactId && key == other.key;
+  }
+
+  @override
+  int get hashCode => contactId.hashCode ^ key.hashCode;
+}
+
+/// generated route for
 /// [ContactsScreen]
 class ContactsRoute extends PageRouteInfo<void> {
   const ContactsRoute({List<PageRouteInfo>? children})
@@ -70,6 +123,22 @@ class HouseholdRoute extends PageRouteInfo<void> {
     name,
     builder: (data) {
       return const HouseholdScreen();
+    },
+  );
+}
+
+/// generated route for
+/// [RelationshipTypesScreen]
+class RelationshipTypesRoute extends PageRouteInfo<void> {
+  const RelationshipTypesRoute({List<PageRouteInfo>? children})
+    : super(RelationshipTypesRoute.name, initialChildren: children);
+
+  static const String name = 'RelationshipTypesRoute';
+
+  static PageInfo page = PageInfo(
+    name,
+    builder: (data) {
+      return const RelationshipTypesScreen();
     },
   );
 }

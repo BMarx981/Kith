@@ -3,6 +3,7 @@ import 'package:kith/core/result/failure.dart';
 import 'package:kith/core/result/result.dart';
 import 'package:kith/data/models/auth_user.dart';
 import 'package:kith/features/auth/application/auth_providers.dart';
+import 'package:kith/features/contacts/application/contact_providers.dart';
 import 'package:kith/features/household/application/household_onboarding_state.dart';
 import 'package:kith/features/household/application/household_providers.dart';
 
@@ -12,8 +13,7 @@ import 'package:kith/features/household/application/household_providers.dart';
 /// A successful attempt writes the membership the household guard is waiting
 /// on, and the guard reacts to that, so nothing here needs to know where the
 /// user ends up.
-class HouseholdOnboardingController
-    extends Notifier<HouseholdOnboardingState> {
+class HouseholdOnboardingController extends Notifier<HouseholdOnboardingState> {
   @override
   HouseholdOnboardingState build() => const HouseholdOnboardingState();
 
@@ -28,14 +28,29 @@ class HouseholdOnboardingController
 
   /// Creates a household called [name], with the signed-in user as its owner
   /// and [displayName] as the name their partner will see.
+  ///
+  /// A brand new household gets the starter set of relationship labels, so
+  /// the first contact has somewhere to be filed. Seeding them here rather
+  /// than inside `createHousehold` keeps the household repository unaware of
+  /// what labels are; a household that joins an existing one is not seeded,
+  /// because it already has whatever labels that household arranged.
   Future<void> createHousehold({
     required String name,
     required String displayName,
-  }) => _submit(
-    (user) => ref
+  }) => _submit((user) async {
+    final result = await ref
         .read(householdRepositoryProvider)
-        .createHousehold(name: name, owner: user, displayName: displayName),
-  );
+        .createHousehold(name: name, owner: user, displayName: displayName);
+    if (result case Ok(value: final household)) {
+      // Deliberately not checked: a household with no labels is a state the
+      // contact list already handles, and it says "add a label first" rather
+      // than refusing a household that was created perfectly well.
+      await ref
+          .read(relationshipTypeRepositoryProvider)
+          .seedDefaults(household.id);
+    }
+    return result;
+  });
 
   /// Joins the household [code] points at, as [displayName].
   Future<void> joinHousehold({
@@ -49,8 +64,9 @@ class HouseholdOnboardingController
 
   /// Runs [attempt] for the signed-in user, holding the form inert until it
   /// settles so a double tap cannot create two households.
-  Future<void> _submit(Future<Result<Object?>> Function(AuthUser) attempt)
-  async {
+  Future<void> _submit(
+    Future<Result<Object?>> Function(AuthUser) attempt,
+  ) async {
     if (state.isSubmitting) return;
     // Asked of the auth service rather than the auth stream provider: this
     // screen sits behind the auth guard, so the session is already restored,

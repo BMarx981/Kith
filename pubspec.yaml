@@ -84,13 +84,14 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
-  # The two font families are bundled as TTF assets rather than pulled from a
-  # font package, so the app renders identically offline and in golden tests.
-  # Both are SIL OFL 1.1, which requires the licence to travel with the font
-  # software, so each family's OFL.txt is bundled alongside it.
+  # Type and icons are bundled as font assets rather than pulled from packages,
+  # so the app renders identically offline and in golden tests. Fraunces and
+  # Inter are SIL OFL 1.1 and Phosphor is MIT; all three require the licence to
+  # travel with the software, so each ships alongside its font.
   assets:
     - assets/fonts/fraunces/OFL.txt
     - assets/fonts/inter/OFL.txt
+    - assets/fonts/phosphor/LICENSE
 
   fonts:
     # Display face: the wordmark, page titles and app bar titles. One optical
@@ -109,3 +110,9 @@ flutter:
           weight: 500
         - asset: assets/fonts/inter/Inter-SemiBold.ttf
           weight: 600
+
+    # Icons. The whole regular-weight face is bundled; release builds
+    # tree-shake it down to the codepoints KithIcons actually names.
+    - family: Phosphor
+      fonts:
+        - asset: assets/fonts/phosphor/Phosphor.ttf

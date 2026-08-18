@@ -54,6 +54,14 @@ service cloud.firestore {
       return value is string && value.size() > 0 && value.size() <= maxLength;
     }
 
+    // An optional field: absent, explicitly null, or a bounded string. The
+    // models write null rather than omitting the key, and read a missing key
+    // as null, so both spellings have to pass.
+    function isOptionalString(data, field, maxLength) {
+      return !(field in data) || data[field] == null ||
+        isBoundedString(data[field], maxLength);
+    }
+
     // Crockford Base32 without I, L, O or U, six characters. Mirrors
     // InviteCode.alphabet in lib/features/household/domain/invite_code.dart.
     function isInviteCode(value) {
@@ -168,19 +176,96 @@ service cloud.firestore {
         allow delete: if (isSelf(uid) && isMember(hid)) || isOwner(hid);
       }
 
-      // ---- household data subcollections ---------------------------------
+      // ---- households/{hid}/contacts/{cid} --------------------------------
       //
-      // Shape validation lands with the models, in M2 and M3. Until then
-      // membership is the whole gate, which is the same posture the app ships
-      // with for these paths anyway: any member may write any of them.
+      // Any member may write any contact: there is no per-member ownership
+      // inside a household, and the point of the app is that both adults edit
+      // the same list. What is checked is the shape, which mirrors the bounds
+      // in lib/data/models/contact.dart and the validation the repository
+      // runs before the round trip.
+
+      function isValidContact(cid, data) {
+        return data.keys().hasOnly(['id', 'name', 'relationshipTypeId', 'cadenceDays',
+            'priority', 'createdAt', 'updatedAt', 'phone', 'email', 'address',
+            'guardianName', 'guardianPhone', 'notes', 'tags', 'isArchived']) &&
+          data.keys().hasAll(['id', 'name', 'relationshipTypeId', 'cadenceDays',
+            'priority', 'createdAt', 'updatedAt', 'tags', 'isArchived']) &&
+          data.id == cid &&
+          isBoundedString(data.name, 100) &&
+          isBoundedString(data.relationshipTypeId, 128) &&
+          data.cadenceDays is int &&
+          data.cadenceDays >= 1 && data.cadenceDays <= 3650 &&
+          data.priority in ['low', 'normal', 'high'] &&
+          isEpochMillis(data.createdAt) &&
+          isEpochMillis(data.updatedAt) &&
+          isOptionalString(data, 'phone', 200) &&
+          isOptionalString(data, 'email', 200) &&
+          isOptionalString(data, 'address', 200) &&
+          isOptionalString(data, 'guardianName', 200) &&
+          isOptionalString(data, 'guardianPhone', 200) &&
+          isOptionalString(data, 'notes', 2000) &&
+          data.tags is list && data.tags.size() <= 20 &&
+          data.isArchived is bool;
+      }
 
       match /contacts/{cid} {
-        allow read, write: if isMember(hid);
+        allow read: if isMember(hid);
+
+        allow create: if isMember(hid) && isValidContact(cid, request.resource.data);
+
+        // The editor sends a partial update that leaves id, createdAt and
+        // isArchived alone; archiving sends isArchived and updatedAt only.
+        // Both land here, so the merged document is what gets validated and
+        // the two immutable fields are pinned separately.
+        allow update: if isMember(hid) &&
+          isValidContact(cid, request.resource.data) &&
+          unchanged('id') &&
+          unchanged('createdAt');
+
+        // No hard delete: archiving is the removal the app offers, so that a
+        // contact's hangout history is never orphaned. See ContactRepository.
+        allow delete: if false;
+      }
+
+      // ---- households/{hid}/relationshipTypes/{rid} -----------------------
+      //
+      // Deleting a label reassigns the contacts filed under it in the same
+      // batch, which is why a member may both delete a label and update
+      // contacts: the two rules together are what make reassignment possible
+      // client-side. Nothing here can check that the batch is well formed --
+      // that guarantee is the repository's, not the rules'.
+
+      function isValidRelationshipType(rid, data) {
+        return data.keys().hasOnly(['id', 'name', 'sortOrder', 'createdAt']) &&
+          data.keys().hasAll(['id', 'name', 'sortOrder', 'createdAt']) &&
+          data.id == rid &&
+          isBoundedString(data.name, 60) &&
+          data.sortOrder is int &&
+          data.sortOrder >= 0 && data.sortOrder <= 1000 &&
+          isEpochMillis(data.createdAt);
       }
 
       match /relationshipTypes/{rid} {
-        allow read, write: if isMember(hid);
+        allow read: if isMember(hid);
+
+        allow create: if isMember(hid) &&
+          isValidRelationshipType(rid, request.resource.data);
+
+        // Renaming sends `name` alone and reordering sends `sortOrder` alone,
+        // so both arrive as partial updates over an existing document.
+        allow update: if isMember(hid) &&
+          isValidRelationshipType(rid, request.resource.data) &&
+          unchanged('id') &&
+          unchanged('createdAt');
+
+        allow delete: if isMember(hid);
       }
+
+      // ---- the rest ------------------------------------------------------
+      //
+      // Shape validation lands with the models, in M3. Until then membership
+      // is the whole gate, which is the same posture the app ships with for
+      // these paths anyway: any member may write any of them.
 
       match /hangouts/{hgid} {
         allow read, write: if isMember(hid);

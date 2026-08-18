@@ -4,14 +4,24 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kith/app/theme.dart';
 import 'package:kith/app/widgets/app_splash.dart';
 import 'package:kith/data/models/auth_user.dart';
+import 'package:kith/data/models/contact.dart';
+import 'package:kith/data/models/contact_priority.dart';
+import 'package:kith/data/models/relationship_type.dart';
 import 'package:kith/features/auth/application/auth_providers.dart';
 import 'package:kith/features/auth/presentation/sign_in_screen.dart';
+import 'package:kith/features/contacts/application/contact_providers.dart';
+import 'package:kith/features/contacts/domain/cadence.dart';
+import 'package:kith/features/contacts/presentation/contact_editor_screen.dart';
+import 'package:kith/features/contacts/presentation/contacts_screen.dart';
+import 'package:kith/features/contacts/presentation/relationship_types_screen.dart';
 import 'package:kith/features/household/application/household_providers.dart';
 import 'package:kith/features/household/domain/invite_code.dart';
 import 'package:kith/features/household/presentation/household_screen.dart';
 
 import '../helpers/fake_auth_service.dart';
+import '../helpers/fake_contact_repository.dart';
 import '../helpers/fake_household_repository.dart';
+import '../helpers/fake_relationship_type_repository.dart';
 import '../helpers/load_fonts.dart';
 import '../helpers/pump_app.dart';
 
@@ -29,23 +39,102 @@ void main() {
   const partner = AuthUser(id: 'uid-partner', email: 'partner@example.com');
 
   const window = Size(400, 800);
+  final seeded = DateTime.utc(2026, 8, 18);
 
   setUpAll(loadAppFonts);
 
   late FakeAuthService auth;
   late FakeHouseholdRepository repository;
+  late FakeContactRepository contacts;
+  late FakeRelationshipTypeRepository labels;
 
   setUp(() {
     auth = FakeAuthService(initialUser: owner);
     addTearDown(auth.dispose);
     repository = FakeHouseholdRepository();
     addTearDown(repository.dispose);
+    contacts = FakeContactRepository();
+    addTearDown(contacts.dispose);
+    labels = FakeRelationshipTypeRepository();
+    addTearDown(labels.dispose);
   });
 
   List<Override> overrides() => [
     authServiceProvider.overrideWithValue(auth),
     householdRepositoryProvider.overrideWithValue(repository),
+    currentHouseholdIdProvider.overrideWithValue('hid-1'),
+    contactRepositoryProvider.overrideWithValue(contacts),
+    relationshipTypeRepositoryProvider.overrideWithValue(labels),
   ];
+
+  /// Fills the fakes with a household worth looking at: four labels and four
+  /// contacts spanning the cadences, an archived one, and a kid's friend with
+  /// a guardian.
+  void seedContacts() {
+    const names = ['Friend', 'Family', "Child's friend", 'Neighbor'];
+    for (final (index, name) in names.indexed) {
+      labels.seed(
+        RelationshipType(
+          id: 'rid-$index',
+          name: name,
+          sortOrder: index,
+          createdAt: seeded,
+        ),
+      );
+    }
+    final people = <(String, String, Cadence, ContactPriority, String?, bool)>[
+      (
+        'Marcus Bell',
+        'rid-0',
+        Cadence.monthly,
+        ContactPriority.high,
+        null,
+        false,
+      ),
+      (
+        'Priya Raman',
+        'rid-2',
+        Cadence.weekly,
+        ContactPriority.normal,
+        'Dana Raman',
+        false,
+      ),
+      (
+        'The Okonkwos',
+        'rid-3',
+        Cadence.quarterly,
+        ContactPriority.low,
+        null,
+        false,
+      ),
+      (
+        'Beatrice Lang',
+        'rid-1',
+        Cadence.twiceAYear,
+        ContactPriority.normal,
+        null,
+        true,
+      ),
+    ];
+    for (final (index, person) in people.indexed) {
+      final (name, typeId, cadence, priority, guardian, archived) = person;
+      contacts.seed(
+        Contact(
+          id: 'cid-$index',
+          name: name,
+          relationshipTypeId: typeId,
+          cadence: cadence,
+          priority: priority,
+          createdAt: seeded,
+          updatedAt: seeded,
+          guardianName: guardian,
+          guardianPhone: guardian == null ? null : '555-0199',
+          tags: index == 1 ? const ['soccer'] : const [],
+          isArchived: archived,
+        ),
+      );
+    }
+  }
 
   /// Pumps [surface] at a fixed window size.
   ///
@@ -120,6 +209,37 @@ void main() {
     );
 
     await pumpSurface(tester, const HouseholdScreen(), theme: theme);
+  });
+
+  goldenTest('the contact list, filtered and sorted', 'contacts', (
+    tester,
+    theme,
+  ) async {
+    seedContacts();
+
+    await pumpSurface(tester, const ContactsScreen(), theme: theme);
+  });
+
+  goldenTest('the contact editor, opened on someone', 'contact_editor', (
+    tester,
+    theme,
+  ) async {
+    seedContacts();
+
+    await pumpSurface(
+      tester,
+      const ContactEditorScreen(contactId: 'cid-1'),
+      theme: theme,
+    );
+  });
+
+  goldenTest('the relationship labels, in their order', 'relationship_types', (
+    tester,
+    theme,
+  ) async {
+    seedContacts();
+
+    await pumpSurface(tester, const RelationshipTypesScreen(), theme: theme);
   });
 
   goldenTest('the splash held before the first route', 'splash', (

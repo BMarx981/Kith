@@ -137,8 +137,8 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                   }),
                   icon: Icon(
                     _obscurePassword
-                        ? Icons.visibility_outlined
-                        : Icons.visibility_off_outlined,
+                        ? KithIcons.showPassword
+                        : KithIcons.hidePassword,
                   ),
                   tooltip: _obscurePassword ? 'Show password' : 'Hide password',
                 ),

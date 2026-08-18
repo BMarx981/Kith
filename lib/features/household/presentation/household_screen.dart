@@ -36,7 +36,7 @@ class HouseholdScreen extends ConsumerWidget {
           IconButton(
             key: signOutKey,
             onPressed: () => ref.read(authServiceProvider).signOut(),
-            icon: const Icon(Icons.logout_outlined),
+            icon: const Icon(KithIcons.signOut),
             tooltip: 'Sign out',
           ),
         ],
@@ -133,7 +133,7 @@ class _InviteCard extends StatelessWidget {
                 trailing: IconButton(
                   key: HouseholdScreen.copyCodeKey,
                   onPressed: () => _copy(context, code.value),
-                  icon: const Icon(Icons.copy_outlined),
+                  icon: const Icon(KithIcons.copy),
                   tooltip: 'Copy invite code',
                 ),
               ),

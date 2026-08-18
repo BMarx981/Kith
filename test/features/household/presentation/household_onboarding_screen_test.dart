@@ -6,11 +6,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kith/core/result/failure.dart';
 import 'package:kith/data/models/auth_user.dart';
 import 'package:kith/features/auth/application/auth_providers.dart';
+import 'package:kith/features/contacts/application/contact_providers.dart';
 import 'package:kith/features/household/application/household_providers.dart';
 import 'package:kith/features/household/presentation/household_onboarding_screen.dart';
 
 import '../../../helpers/fake_auth_service.dart';
 import '../../../helpers/fake_household_repository.dart';
+import '../../../helpers/fake_relationship_type_repository.dart';
 import '../../../helpers/pump_app.dart';
 
 void main() {
@@ -18,8 +20,11 @@ void main() {
 
   late FakeAuthService auth;
   late FakeHouseholdRepository repository;
+  late FakeRelationshipTypeRepository labels;
 
   setUp(() {
+    labels = FakeRelationshipTypeRepository();
+    addTearDown(labels.dispose);
     auth = FakeAuthService(initialUser: user);
     addTearDown(auth.dispose);
     repository = FakeHouseholdRepository();
@@ -29,6 +34,7 @@ void main() {
   List<Override> overrides() => [
     authServiceProvider.overrideWithValue(auth),
     householdRepositoryProvider.overrideWithValue(repository),
+    relationshipTypeRepositoryProvider.overrideWithValue(labels),
   ];
 
   Future<void> pumpScreen(WidgetTester tester) => tester.pumpApp(

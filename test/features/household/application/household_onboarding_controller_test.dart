@@ -8,15 +8,19 @@ import 'package:kith/core/result/failure.dart';
 import 'package:kith/core/result/result.dart';
 import 'package:kith/data/models/auth_user.dart';
 import 'package:kith/data/models/household.dart';
+import 'package:kith/data/models/relationship_type.dart';
 import 'package:kith/data/repositories/firestore_household_repository.dart';
+import 'package:kith/data/repositories/firestore_relationship_type_repository.dart';
 import 'package:kith/data/repositories/household_repository.dart';
 import 'package:kith/features/auth/application/auth_providers.dart';
+import 'package:kith/features/contacts/application/contact_providers.dart';
 import 'package:kith/features/household/application/household_onboarding_controller.dart';
 import 'package:kith/features/household/application/household_onboarding_state.dart';
 import 'package:kith/features/household/application/household_providers.dart';
 import 'package:mocktail/mocktail.dart';
 
 import '../../../helpers/fake_auth_service.dart';
+import '../../../helpers/fake_relationship_type_repository.dart';
 
 class _MockHouseholdRepository extends Mock implements HouseholdRepository {}
 
@@ -32,10 +36,13 @@ void main() {
   );
 
   late _MockHouseholdRepository repository;
+  late FakeRelationshipTypeRepository labels;
   late FakeAuthService auth;
 
   setUp(() {
     repository = _MockHouseholdRepository();
+    labels = FakeRelationshipTypeRepository();
+    addTearDown(labels.dispose);
     auth = FakeAuthService(initialUser: user);
     addTearDown(auth.dispose);
     when(() => repository.watchHouseholdIdsFor(any())).thenAnswer(
@@ -47,6 +54,7 @@ void main() {
     final container = ProviderContainer(
       overrides: [
         householdRepositoryProvider.overrideWithValue(repository),
+        relationshipTypeRepositoryProvider.overrideWithValue(labels),
         authServiceProvider.overrideWithValue(auth),
       ],
     );
@@ -263,6 +271,9 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           householdRepositoryProvider.overrideWithValue(real),
+          relationshipTypeRepositoryProvider.overrideWithValue(
+            FirestoreRelationshipTypeRepository(firestore, Clock.fixed(now)),
+          ),
           authServiceProvider.overrideWithValue(auth),
         ],
       );
@@ -277,6 +288,56 @@ void main() {
       await pumpEventQueue();
 
       expect(await container.read(householdIdsProvider.future), hasLength(1));
+    });
+
+    test('a new household starts with the starter labels', () async {
+      final firestore = FakeFirebaseFirestore();
+      final labelRepository = FirestoreRelationshipTypeRepository(
+        firestore,
+        Clock.fixed(now),
+      );
+      final container = ProviderContainer(
+        overrides: [
+          householdRepositoryProvider.overrideWithValue(
+            FirestoreHouseholdRepository(
+              firestore,
+              Random(1),
+              Clock.fixed(now),
+            ),
+          ),
+          relationshipTypeRepositoryProvider.overrideWithValue(labelRepository),
+          authServiceProvider.overrideWithValue(auth),
+        ],
+      );
+      addTearDown(container.dispose);
+      final subscription = container.listen(householdIdsProvider, (_, _) {});
+      addTearDown(subscription.close);
+
+      await controllerOf(
+        container,
+      ).createHousehold(name: 'The Marx house', displayName: 'Brian');
+      await pumpEventQueue();
+
+      final householdId = (await container.read(
+        householdIdsProvider.future,
+      )).single;
+      expect(
+        (await labelRepository.watchRelationshipTypes(householdId).first).map(
+          (type) => type.name,
+        ),
+        orderedEquals(RelationshipType.defaultNames),
+      );
+    });
+
+    test('joining a household does not seed labels over its own', () async {
+      whenJoinReturns(Ok(household));
+      final container = harness();
+
+      await controllerOf(
+        container,
+      ).joinHousehold(code: 'ABC123', displayName: 'Partner');
+
+      expect(labels.seedCalls, isEmpty);
     });
   });
 }

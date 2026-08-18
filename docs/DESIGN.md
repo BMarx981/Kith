@@ -19,6 +19,8 @@ this file disagree, the file wins until it is deliberately changed.
 3. **Serif display, quiet sans.** Fraunces carries the wordmark, page titles and
    app-bar titles. Inter carries everything else. The contrast between the two
    is the app's signature, so neither should drift into the other's job.
+   Icons are Phosphor, whose rounded terminals answer Fraunces rather than
+   Material's squared ones.
 4. **No ink ripple.** The Material ripple is the loudest stock-Material tell.
    Presses read as a low-alpha overlay instead.
 5. **Semantics stay honest.** Freshness is green / amber / red because those
@@ -131,11 +133,60 @@ licence to travel with the font software. Each family therefore ships its
 | Fraunces | `github.com/undercasetype/Fraunces` (`fonts/ttf`, `OFL.txt`) | `Fraunces72ptSoft-SemiBold.ttf` |
 | Inter | `github.com/rsms/inter` release v4.1 (`extras/ttf`, `LICENSE.txt`) | `Inter-Regular.ttf`, `Inter-Medium.ttf`, `Inter-SemiBold.ttf` |
 
-They live under `assets/fonts/fraunces/` and `assets/fonts/inter/`.
+They live under `assets/fonts/fraunces/` and `assets/fonts/inter/`. The icon
+face is bundled the same way; see section 4.
 
 ---
 
-## 4. Spacing, shape and motion
+## 4. Iconography
+
+**Phosphor**, regular weight, bundled as a TTF asset. Material's icon set is the
+loudest remaining stock tell after the surfaces: it mixes fills into a nominally
+outlined set (solid heads on the people mark, a solid lid on the bin) and
+squares off its terminals, which reads heavy beside a hairline border and a soft
+serif wordmark. Phosphor's terminals are rounded like Fraunces Soft's, and its
+forms stay open.
+
+`Icons.*` is not used anywhere in `lib/`. Screens reach for `KithIcons`, in
+`lib/app/theme/kith_icons.dart`, whose constants are named for the job the icon
+does in Kith rather than for the shape it happens to be: `KithIcons.signOut`,
+not `KithIcons.arrowRight`. A later change of glyph is then a one-line edit in
+one file.
+
+| Constant | Phosphor glyph | Used for |
+|---|---|---|
+| `reconnect` | `heart` | The Reconnect surface |
+| `people` | `users` | Contacts, and the household's member list |
+| `household` | `house` | The way through to the household screen |
+| `showPassword` | `eye` | Reveals a masked password |
+| `hidePassword` | `eye-slash` | Masks a revealed password |
+| `signOut` | `sign-out` | Leaves the session |
+| `copy` | `copy` | Copies the invite code |
+| `add` | `plus` | Adds a contact or a relationship label |
+| `search` | `magnifying-glass` | Narrows the contact list |
+| `sort` | `sort-ascending` | Reorders the contact list |
+| `label` | `tag` | Relationship labels, and the filter that uses them |
+| `edit` | `pencil-simple` | Renames a relationship label |
+| `delete` | `trash` | Deletes a relationship label |
+| `reorder` | `dots-six-vertical` | Grab handle for dragging a label |
+
+Rules:
+
+- Only icons actually rendered get a constant. The bundled face carries the
+  whole Phosphor set and release builds tree-shake it to the codepoints named,
+  so adding one is a line in `kith_icons.dart`, never a new asset.
+- One weight. Light is prettier at 48px but goes frail at the 20px of the
+  password toggle, and a set that changes weight by size stops reading as a set.
+- Never a filled icon to mean emphasis. Emphasis is colour and space, the same
+  rule the type scale follows.
+- `uses-material-design: true` stays in `pubspec.yaml`. Nothing in `lib/` reads
+  from it, but the framework draws its own chrome with Material glyphs, and the
+  app bar's automatic back button is one of them.
+- Licence: MIT, bundled at `assets/fonts/phosphor/LICENSE`.
+
+---
+
+## 5. Spacing, shape and motion
 
 ### Spacing
 
@@ -175,7 +226,7 @@ round caps in the accent colour.
 
 ---
 
-## 5. Component treatments
+## 6. Component treatments
 
 Set once in `KithTheme._build`, so screens stay free of styling code.
 
@@ -190,6 +241,14 @@ Set once in `KithTheme._build`, so screens stay free of styling code.
 - **FilledButton** — radius 10, 48 minimum height, elevation 0, no splash.
 - **TextButton** — radius 10, no splash, `primary` foreground.
 - **Chip** — stadium, no fill, 1px `outline` border, `onSurfaceVariant` label.
+  A *selected* chip is marked by its border and its label only: 1.5px
+  `primary` and a `primary` label, still no fill and no checkmark. A filled,
+  ticked chip is one of the loudest Material tells, and the accent reads
+  clearly enough on its own.
+- **FloatingActionButton** — the one filled accent surface in the app, and the
+  only control that floats over content: `primary` on `onPrimary`, elevation 0
+  in every state, no splash, radius 12. Flat and squared like everything else,
+  so it reads as part of the page rather than as a Material dropped onto it.
 - **Divider** — 1px `outlineVariant`, zero indent.
 - **SnackBar** — floating, `inverseSurface`, radius 10.
 - **Splash** — `NoSplash.splashFactory` app-wide, with a low-alpha pressed
@@ -197,11 +256,16 @@ Set once in `KithTheme._build`, so screens stay free of styling code.
 
 ---
 
-## 6. Rules for future milestones
+## 7. Rules for future milestones
 
 - Contact rows and suggestion cards are **hairline surfaces**: a border and a
   fill, never a shadow.
+- A list row is a `ListTile` with a `surfaceContainerHighest` avatar carrying
+  the initial, the name as the title, and the secondary facts joined by a
+  middle dot in the subtitle. Contacts and household members are laid out the
+  same way on purpose.
 - The freshness gauge reads its colours from `FreshnessColors` and nowhere else.
+- Icons come from `KithIcons`. A screen that imports `Icons` is a bug.
 - Never add a second accent colour. If two things need to be told apart, use
   `onSurfaceVariant` versus `onSurface`, or space them.
 - Never hardcode a colour outside `lib/app/theme/`. Screens style through

@@ -16,7 +16,7 @@ A shared household app that tracks friends — yours and your kids' — shows ho
 
 ### Users
 - Two (or more) adults in one household, both editing the same list.
-- Kids do not need accounts in v1; kids' friends are contacts *tagged to* a kid ("Felix's friend"), managed by parents.
+- Kids do not need accounts in v1; kids' friends are contacts *tagged to* a kid ("Child's friend", renamed per household), managed by parents.
 
 ### Entities
 | Entity | Purpose |
@@ -24,12 +24,12 @@ A shared household app that tracks friends — yours and your kids' — shows ho
 | Household | The shared container. All data is scoped to it. |
 | Member | An authenticated adult user belonging to a household. |
 | Contact | A person (or family unit) you track. |
-| RelationshipType | Editable, per-household label list. Seeded: Friend, Family, Neighbor, Felix's friend, Coworker. Fully CRUD-able. |
+| RelationshipType | Editable, per-household label list. Seeded: Friend, Family, Neighbor, Child's friend, Coworker. Fully CRUD-able. |
 | Hangout | A logged meetup: date, contacts involved, who from the household attended, note. |
 | PlannedHangout | A future intent: contact(s), proposed date/window, status, calendar event link. |
 
 ### Contact fields
-- Name, photo (optional), relationship type (FK to RelationshipType)
+- Name, relationship type (FK to RelationshipType)
 - Contact info: phone, email, address (all optional)
 - **Parent/guardian contact** (name + phone) — first-class field, because for a kid's friend the person you actually text is the parent
 - Target cadence: weekly / biweekly / monthly / quarterly / twice-a-year / custom days
@@ -77,7 +77,7 @@ truth for anything a screen renders.
 - **Riverpod** classic providers (`NotifierProvider`, `AsyncNotifierProvider`, `StreamProvider`) — no codegen; `riverpod_lint` enabled
 - **AutoRoute** for typed routes and guards — **the single codegen exception** in the project (`*.gr.dart` via build_runner)
 - **Hand-written immutable models**: explicit `const` constructors, `toMap`/`fromMap`, `copyWith`, `==`/`hashCode` — all fully unit-tested
-- **Firebase**: Auth (email/password + Google/Apple sign-in), **Cloud Firestore** for shared realtime data, Storage for contact photos
+- **Firebase**: Auth (email/password + Google/Apple sign-in), **Cloud Firestore** for shared realtime data. No Storage: contacts carry no photo (decided 2026-08-18 — a coloured initial identifies a row well enough to not be worth an image picker, upload path and a second set of security rules).
 - **clock** package for injectable time (critical for testing the gauge/suggestions)
 
 No freezed, no json_serializable, no riverpod codegen. The only generated files in the repo are AutoRoute's router output.
@@ -187,14 +187,17 @@ Gated — each milestone ends with the analyzer clean, tests green, and a go/no-
 ### M2 — Contacts & relationship types
 - Contact CRUD with all fields incl. parent/guardian contact
 - RelationshipType manager (add/rename/reorder/delete-with-reassign)
-- List view with search, filter by type, sort by freshness
-- Photo upload
+- List view with search, filter by type, and sort by name, recently added or cadence
 - **Gate:** partner edits appear on the other device in realtime.
+
+Sorting by freshness is M3's, not M2's: freshness is a function of the last
+hangout, and there are no hangouts until M3, so every contact would read the
+same. The sort control gains the option alongside the gauge.
 
 ### M3 — Hangouts & the gauge
 - Quick-log flow (multi-contact select, date defaults to today, note)
 - Hangout history per contact + household timeline
-- Freshness gauge widget (goldens) + list sorting by freshness
+- Freshness gauge widget (goldens) + list sorting by freshness, added to the M2 sort control
 - **Gate:** logging a hangout updates gauges everywhere instantly.
 
 ### M4 — Suggestions

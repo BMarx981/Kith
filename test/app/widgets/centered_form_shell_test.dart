@@ -50,4 +50,38 @@ void main() {
       expect(find.byType(AppBar), findsNothing);
     });
   });
+
+  group('CenteredFormBody', () {
+    testWidgets('lays the form out without a page of its own', (tester) async {
+      await tester.pumpApp(
+        const Scaffold(
+          body: CenteredFormBody(child: SizedBox(key: Key('content'))),
+        ),
+      );
+
+      expect(find.byKey(const Key('content')), findsOneWidget);
+      expect(find.byType(Scaffold), findsOneWidget);
+    });
+
+    testWidgets('caps its child at the form width on a wide window', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1200, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpApp(
+        const Scaffold(
+          body: CenteredFormBody(
+            child: SizedBox(width: double.infinity, key: Key('content')),
+          ),
+        ),
+      );
+
+      expect(
+        tester.getSize(find.byKey(const Key('content'))).width,
+        KithSpacing.formMaxWidth,
+      );
+    });
+  });
 }

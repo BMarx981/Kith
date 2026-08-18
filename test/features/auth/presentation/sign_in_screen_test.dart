@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kith/app/theme.dart';
 import 'package:kith/core/result/failure.dart';
 import 'package:kith/core/result/result.dart';
 import 'package:kith/data/models/auth_user.dart';
@@ -316,11 +317,11 @@ void main() {
     testWidgets('toggles password visibility', (tester) async {
       await pumpScreen(tester);
 
-      expect(find.byIcon(Icons.visibility_outlined), findsOneWidget);
-      await tester.tap(find.byIcon(Icons.visibility_outlined));
+      expect(find.byIcon(KithIcons.showPassword), findsOneWidget);
+      await tester.tap(find.byIcon(KithIcons.showPassword));
       await tester.pumpAndSettle();
 
-      expect(find.byIcon(Icons.visibility_off_outlined), findsOneWidget);
+      expect(find.byIcon(KithIcons.hidePassword), findsOneWidget);
       final field = tester.widget<TextField>(
         find.descendant(
           of: find.byKey(SignInScreen.passwordFieldKey),
