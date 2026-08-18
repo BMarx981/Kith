@@ -58,6 +58,14 @@ dependencies:
   # for the calendar scope without a second sign-in.
   google_sign_in: ^7.2.0
 
+  # Google Calendar is reached over its REST API with a bearer token from
+  # google_sign_in's authorization half, rather than through googleapis: the
+  # sink touches four event endpoints, and a hand-written client is a smaller
+  # surface than a generated one for every Google API the package covers.
+  # Already resolved transitively through Firebase; named here because lib/
+  # imports it directly.
+  http: ^1.6.0
+
 dev_dependencies:
   auto_route_generator: ^10.6.0
   build_runner: ^2.15.1
