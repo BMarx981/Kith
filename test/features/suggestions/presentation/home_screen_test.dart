@@ -22,22 +22,25 @@ void main() {
     });
 
     // Where the buttons go is the router's business, and is asserted there.
-    testWidgets('offers the ways through to contacts and the household', (
+    testWidgets('offers the ways through to the rest of the app', (
       tester,
     ) async {
       await tester.pumpApp(const HomeScreen());
 
+      expect(find.byKey(HomeScreen.hangoutsKey), findsOneWidget);
+      expect(find.byTooltip('Hangouts'), findsOneWidget);
       expect(find.byKey(HomeScreen.contactsKey), findsOneWidget);
       expect(find.byTooltip('Contacts'), findsOneWidget);
       expect(find.byKey(HomeScreen.householdKey), findsOneWidget);
       expect(find.byTooltip('Household'), findsOneWidget);
     });
 
-    testWidgets('tells the two destinations apart by their icons', (
+    testWidgets('tells the three destinations apart by their icons', (
       tester,
     ) async {
       await tester.pumpApp(const HomeScreen());
 
+      expect(find.byIcon(KithIcons.hangout), findsOneWidget);
       expect(find.byIcon(KithIcons.people), findsOneWidget);
       expect(find.byIcon(KithIcons.household), findsOneWidget);
     });

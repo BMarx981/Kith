@@ -1,11 +1,14 @@
+import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kith/app/theme.dart';
 import 'package:kith/app/widgets/app_splash.dart';
+import 'package:kith/core/clock/clock_provider.dart';
 import 'package:kith/data/models/auth_user.dart';
 import 'package:kith/data/models/contact.dart';
 import 'package:kith/data/models/contact_priority.dart';
+import 'package:kith/data/models/hangout.dart';
 import 'package:kith/data/models/relationship_type.dart';
 import 'package:kith/features/auth/application/auth_providers.dart';
 import 'package:kith/features/auth/presentation/sign_in_screen.dart';
@@ -14,12 +17,16 @@ import 'package:kith/features/contacts/domain/cadence.dart';
 import 'package:kith/features/contacts/presentation/contact_editor_screen.dart';
 import 'package:kith/features/contacts/presentation/contacts_screen.dart';
 import 'package:kith/features/contacts/presentation/relationship_types_screen.dart';
+import 'package:kith/features/hangouts/application/hangout_providers.dart';
+import 'package:kith/features/hangouts/presentation/hangout_editor_screen.dart';
+import 'package:kith/features/hangouts/presentation/hangouts_screen.dart';
 import 'package:kith/features/household/application/household_providers.dart';
 import 'package:kith/features/household/domain/invite_code.dart';
 import 'package:kith/features/household/presentation/household_screen.dart';
 
 import '../helpers/fake_auth_service.dart';
 import '../helpers/fake_contact_repository.dart';
+import '../helpers/fake_hangout_repository.dart';
 import '../helpers/fake_household_repository.dart';
 import '../helpers/fake_relationship_type_repository.dart';
 import '../helpers/load_fonts.dart';
@@ -47,6 +54,7 @@ void main() {
   late FakeHouseholdRepository repository;
   late FakeContactRepository contacts;
   late FakeRelationshipTypeRepository labels;
+  late FakeHangoutRepository hangouts;
 
   setUp(() {
     auth = FakeAuthService(initialUser: owner);
@@ -57,6 +65,8 @@ void main() {
     addTearDown(contacts.dispose);
     labels = FakeRelationshipTypeRepository();
     addTearDown(labels.dispose);
+    hangouts = FakeHangoutRepository();
+    addTearDown(hangouts.dispose);
   });
 
   List<Override> overrides() => [
@@ -65,11 +75,15 @@ void main() {
     currentHouseholdIdProvider.overrideWithValue('hid-1'),
     contactRepositoryProvider.overrideWithValue(contacts),
     relationshipTypeRepositoryProvider.overrideWithValue(labels),
+    hangoutRepositoryProvider.overrideWithValue(hangouts),
+    // Pinned, because every gauge in these surfaces is a function of now.
+    clockProvider.overrideWithValue(Clock.fixed(seeded)),
   ];
 
   /// Fills the fakes with a household worth looking at: four labels and four
-  /// contacts spanning the cadences, an archived one, and a kid's friend with
-  /// a guardian.
+  /// contacts spanning the cadences, an archived one, a kid's friend with a
+  /// guardian, and enough logged hangouts to put a gauge in each of its four
+  /// readings.
   void seedContacts() {
     const names = ['Friend', 'Family', "Child's friend", 'Neighbor'];
     for (final (index, name) in names.indexed) {
@@ -131,6 +145,30 @@ void main() {
           guardianPhone: guardian == null ? null : '555-0199',
           tags: index == 1 ? const ['soccer'] : const [],
           isArchived: archived,
+        ),
+      );
+    }
+
+    // Chosen so the gauge appears in all four of its readings at once:
+    // Marcus is monthly and eight days back, so fresh; Priya is weekly and a
+    // month back, so overdue; the Okonkwos are quarterly and eleven weeks
+    // back, so due; and Beatrice has nothing logged, so never.
+    final logs = <(String, int, List<String>, String?)>[
+      ('hgid-1', 8, ['cid-0'], 'Coffee, and he brought the dog'),
+      ('hgid-2', 30, ['cid-0', 'cid-1'], 'Barbecue in their garden'),
+      ('hgid-3', 77, ['cid-2'], null),
+    ];
+    for (final (id, daysAgo, contactIds, note) in logs) {
+      hangouts.seed(
+        Hangout(
+          id: id,
+          occurredOn: seeded.subtract(Duration(days: daysAgo)),
+          contactIds: contactIds,
+          attendeeIds: const ['uid-owner'],
+          createdBy: 'uid-owner',
+          createdAt: seeded,
+          updatedAt: seeded,
+          note: note,
         ),
       );
     }
@@ -240,6 +278,51 @@ void main() {
     seedContacts();
 
     await pumpSurface(tester, const RelationshipTypesScreen(), theme: theme);
+  });
+
+  goldenTest('the household timeline, grouped by day', 'hangouts', (
+    tester,
+    theme,
+  ) async {
+    seedContacts();
+    await repository.createHousehold(
+      name: 'The Marx house',
+      owner: owner,
+      displayName: 'Brian',
+    );
+
+    await pumpSurface(tester, const HangoutsScreen(), theme: theme);
+  });
+
+  goldenTest(
+    "one contact's history, headed by their gauge",
+    'contact_hangouts',
+    (
+      tester,
+      theme,
+    ) async {
+      seedContacts();
+
+      await pumpSurface(
+        tester,
+        const HangoutsScreen(contactId: 'cid-1'),
+        theme: theme,
+      );
+    },
+  );
+
+  goldenTest('the quick log, opened on today', 'hangout_editor', (
+    tester,
+    theme,
+  ) async {
+    seedContacts();
+    await repository.createHousehold(
+      name: 'The Marx house',
+      owner: owner,
+      displayName: 'Brian',
+    );
+
+    await pumpSurface(tester, const HangoutEditorScreen(), theme: theme);
   });
 
   goldenTest('the splash held before the first route', 'splash', (

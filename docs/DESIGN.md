@@ -84,6 +84,29 @@ they are domain semantics rather than UI chrome. Read them via
 harmonises with the rest of the app instead of importing a third palette. The
 four states are always mutually distinct — a test enforces it.
 
+### The gauge
+
+`FreshnessGauge`, in `lib/app/widgets/freshness_gauge.dart`. One arc swept
+clockwise from twelve o'clock, at the app's progress-indicator weight (2.5px,
+round cap), over a 1px `outlineVariant` track. It rings the avatar on a contact
+row and stands on its own at the head of a contact's history; the only thing a
+surface chooses is the diameter.
+
+Colour is never the only difference between the states, because colour alone
+fails for a red-green reader and in a monochrome screenshot:
+
+| State | Ring |
+|---|---|
+| fresh / due / overdue | Hairline track, with an arc over it as long as the fraction of the cadence used up, capped at a full ring |
+| never | No arc at all — the whole ring is the neutral `unknown` colour |
+
+A contact seen this morning still gets a round cap's worth of arc, so "seen
+today" and "never logged" can never draw the same picture. Past the cadence the
+arc stops at a full ring: the colour carries how far past, and a ring that
+wrapped twice would read as fresh again.
+
+Each of the four states has a light and a dark golden in `test/goldens/`.
+
 ---
 
 ## 3. Typography
@@ -169,6 +192,9 @@ one file.
 | `edit` | `pencil-simple` | Renames a relationship label |
 | `delete` | `trash` | Deletes a relationship label |
 | `reorder` | `dots-six-vertical` | Grab handle for dragging a label |
+| `hangout` | `calendar-check` | A logged hangout, and the timeline of them |
+| `date` | `calendar-blank` | The day a hangout happened on |
+| `history` | `clock-counter-clockwise` | One contact's hangout history |
 
 Rules:
 
@@ -265,6 +291,8 @@ Set once in `KithTheme._build`, so screens stay free of styling code.
   middle dot in the subtitle. Contacts and household members are laid out the
   same way on purpose.
 - The freshness gauge reads its colours from `FreshnessColors` and nowhere else.
+- Timeline day headers are section labels: `titleSmall`, `onSurfaceVariant`,
+  uppercased, the same treatment the forms give their section headings.
 - Icons come from `KithIcons`. A screen that imports `Icons` is a bug.
 - Never add a second accent colour. If two things need to be told apart, use
   `onSurfaceVariant` versus `onSurface`, or space them.

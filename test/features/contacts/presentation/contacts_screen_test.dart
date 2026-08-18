@@ -1,39 +1,67 @@
+import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kith/app/theme.dart';
+import 'package:kith/app/widgets/freshness_gauge.dart';
+import 'package:kith/core/clock/clock_provider.dart';
 import 'package:kith/core/result/failure.dart';
 import 'package:kith/data/models/contact.dart';
 import 'package:kith/data/models/contact_priority.dart';
+import 'package:kith/data/models/hangout.dart';
 import 'package:kith/data/models/relationship_type.dart';
 import 'package:kith/features/contacts/application/contact_providers.dart';
 import 'package:kith/features/contacts/domain/cadence.dart';
+import 'package:kith/features/contacts/domain/contact_view.dart';
 import 'package:kith/features/contacts/presentation/contacts_screen.dart';
+import 'package:kith/features/hangouts/application/hangout_providers.dart';
+import 'package:kith/features/hangouts/domain/freshness.dart';
 import 'package:kith/features/household/application/household_providers.dart';
 
 import '../../../helpers/fake_contact_repository.dart';
+import '../../../helpers/fake_hangout_repository.dart';
 import '../../../helpers/fake_relationship_type_repository.dart';
 import '../../../helpers/pump_app.dart';
 
 void main() {
   const householdId = 'hid-1';
   final createdAt = DateTime.utc(2026, 8);
+  final now = DateTime.utc(2026, 8, 18);
 
   late FakeContactRepository contacts;
   late FakeRelationshipTypeRepository labels;
+  late FakeHangoutRepository hangouts;
 
   setUp(() {
     contacts = FakeContactRepository();
     addTearDown(contacts.dispose);
     labels = FakeRelationshipTypeRepository();
     addTearDown(labels.dispose);
+    hangouts = FakeHangoutRepository();
+    addTearDown(hangouts.dispose);
   });
 
   List<Override> overrides({String? household = householdId}) => [
     currentHouseholdIdProvider.overrideWithValue(household),
     contactRepositoryProvider.overrideWithValue(contacts),
     relationshipTypeRepositoryProvider.overrideWithValue(labels),
+    hangoutRepositoryProvider.overrideWithValue(hangouts),
+    clockProvider.overrideWithValue(Clock.fixed(now)),
   ];
+
+  void seedHangout(String id, int daysAgo, List<String> contactIds) {
+    hangouts.seed(
+      Hangout(
+        id: id,
+        occurredOn: now.subtract(Duration(days: daysAgo)),
+        contactIds: contactIds,
+        attendeeIds: const [],
+        createdBy: 'uid-1',
+        createdAt: now,
+        updatedAt: now,
+      ),
+    );
+  }
 
   RelationshipType label(String id, String name, {int sortOrder = 0}) =>
       RelationshipType(
@@ -277,6 +305,99 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Marcus'), findsOneWidget);
+    });
+  });
+
+  group('the freshness gauge', () {
+    testWidgets('rings every row, and says how long it has been', (
+      tester,
+    ) async {
+      labels.seed(label('rid-friend', 'Friend'));
+      contacts.seed(contact('c1', 'Marcus'));
+      seedHangout('h1', 1, ['c1']);
+
+      await pumpScreen(tester);
+
+      expect(find.byType(FreshnessGauge), findsOneWidget);
+      expect(
+        find.text('Friend  ·  Monthly  ·  Seen yesterday'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('reads never logged for a contact with no hangout', (
+      tester,
+    ) async {
+      labels.seed(label('rid-friend', 'Friend'));
+      contacts.seed(contact('c1', 'Marcus'));
+
+      await pumpScreen(tester);
+
+      expect(find.textContaining('Never logged'), findsOneWidget);
+      expect(
+        tester
+            .widget<FreshnessGauge>(find.byType(FreshnessGauge))
+            .freshness
+            .state,
+        FreshnessState.never,
+      );
+    });
+
+    testWidgets('moves the moment a hangout is logged elsewhere', (
+      tester,
+    ) async {
+      labels.seed(label('rid-friend', 'Friend'));
+      contacts.seed(contact('c1', 'Marcus'));
+
+      await pumpScreen(tester);
+      expect(find.textContaining('Never logged'), findsOneWidget);
+
+      seedHangout('h1', 0, ['c1']);
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Seen today'), findsOneWidget);
+      expect(
+        tester
+            .widget<FreshnessGauge>(find.byType(FreshnessGauge))
+            .freshness
+            .state,
+        FreshnessState.fresh,
+      );
+    });
+
+    testWidgets('keeps the rows drawn when the timeline cannot be read', (
+      tester,
+    ) async {
+      labels.seed(label('rid-friend', 'Friend'));
+      contacts.seed(contact('c1', 'Marcus'));
+      hangouts.streamFailure = const PermissionFailure('nope');
+
+      await pumpScreen(tester);
+
+      expect(find.text('Marcus'), findsOneWidget);
+      expect(find.textContaining('Never logged'), findsOneWidget);
+    });
+
+    testWidgets('sorts the list by freshness from the sort menu', (
+      tester,
+    ) async {
+      labels.seed(label('rid-friend', 'Friend'));
+      contacts
+        ..seed(contact('c1', 'Ada', cadence: Cadence.quarterly))
+        ..seed(contact('c2', 'Zoe', cadence: Cadence.weekly));
+      seedHangout('h1', 20, ['c1', 'c2']);
+
+      await pumpScreen(tester);
+      await tester.tap(find.byKey(ContactsScreen.sortKey));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(ContactSort.freshness.label).last);
+      await tester.pumpAndSettle();
+
+      final names = tester
+          .widgetList<ListTile>(find.byType(ListTile))
+          .map((tile) => (tile.title! as Text).data)
+          .toList();
+      expect(names, orderedEquals(<String>['Zoe', 'Ada']));
     });
   });
 }

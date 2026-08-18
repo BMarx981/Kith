@@ -18,6 +18,9 @@ class HomeScreen extends StatelessWidget {
   /// Identifies the contacts action to tests.
   static const contactsKey = Key('home.contacts');
 
+  /// Identifies the hangouts action to tests.
+  static const hangoutsKey = Key('home.hangouts');
+
   @override
   Widget build(BuildContext context) {
     return MilestonePlaceholder(
@@ -25,6 +28,12 @@ class HomeScreen extends StatelessWidget {
       milestone: 'M4',
       icon: KithIcons.reconnect,
       actions: [
+        IconButton(
+          key: hangoutsKey,
+          onPressed: () => context.router.push(HangoutsRoute()),
+          icon: const Icon(KithIcons.hangout),
+          tooltip: 'Hangouts',
+        ),
         IconButton(
           key: contactsKey,
           onPressed: () => context.router.push(const ContactsRoute()),

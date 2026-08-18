@@ -33,6 +33,10 @@ migrate_working_dir/
 /build/
 /coverage/
 
+# Diff images written by a failing golden test. Regenerate with
+# `flutter test --update-goldens` once the change is deliberate.
+test/goldens/failures/
+
 # Symbolication related
 app.*.symbols
 

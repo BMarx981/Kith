@@ -10,6 +10,8 @@ import 'package:kith/features/auth/presentation/sign_in_screen.dart';
 import 'package:kith/features/contacts/presentation/contact_editor_screen.dart';
 import 'package:kith/features/contacts/presentation/contacts_screen.dart';
 import 'package:kith/features/contacts/presentation/relationship_types_screen.dart';
+import 'package:kith/features/hangouts/presentation/hangout_editor_screen.dart';
+import 'package:kith/features/hangouts/presentation/hangouts_screen.dart';
 import 'package:kith/features/household/application/household_providers.dart';
 import 'package:kith/features/household/presentation/household_onboarding_screen.dart';
 import 'package:kith/features/household/presentation/household_screen.dart';
@@ -63,6 +65,20 @@ class AppRouter extends RootStackRouter {
     AutoRoute(
       page: RelationshipTypesRoute.page,
       path: '/contacts/labels',
+      guards: [authGuard, householdGuard],
+    ),
+    AutoRoute(
+      page: HangoutsRoute.page,
+      // The household timeline and one contact's history are the same screen,
+      // so they are the same route: the segment is absent for the whole house.
+      path: '/hangouts/:contactId',
+      guards: [authGuard, householdGuard],
+    ),
+    AutoRoute(
+      page: HangoutEditorRoute.page,
+      // Rooted apart from /hangouts so that an optional :contactId and an
+      // optional :hangoutId can never claim the same two-segment path.
+      path: '/log/:hangoutId',
       guards: [authGuard, householdGuard],
     ),
     AutoRoute(

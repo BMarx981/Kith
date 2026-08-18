@@ -213,6 +213,28 @@ void main() {
       expect(find.byKey(ContactEditorScreen.archiveKey), findsNothing);
     });
 
+    testWidgets('offers no history for a contact that is not saved', (
+      tester,
+    ) async {
+      seedLabels();
+
+      await pumpEditor(tester);
+
+      expect(find.byKey(ContactEditorScreen.historyKey), findsNothing);
+    });
+
+    testWidgets("offers the way through to an existing contact's hangouts", (
+      tester,
+    ) async {
+      seedLabels();
+      seedContact();
+
+      await pumpEditor(tester, contactId: 'cid-1');
+
+      expect(find.byKey(ContactEditorScreen.historyKey), findsOneWidget);
+      expect(find.text('See their hangouts'), findsOneWidget);
+    });
+
     testWidgets('says a label is needed before a contact can be filed', (
       tester,
     ) async {

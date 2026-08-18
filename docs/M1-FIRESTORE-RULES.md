@@ -14,6 +14,11 @@ rules test", recorded here rather than by quietly relaxing that rule. The matrix
 stays as the spec for whenever the harness question gets a real answer, and it
 should be built before anything beyond the two-person household depends on it.
 
+M3 (2026-08-18) added shape validation for `hangouts/{hgid}` under the same
+deviation: the rules compile clean by the check below, the matrix gained its
+hangout cases, and none of them are executed. The debt is now two milestones
+deep and is the largest single thing outstanding on the backend.
+
 What *was* verified: the rules compile clean. The emulator does not compile
 rules at startup, so the check is a `PUT` of the file to the running emulator's
 `/emulator/v1/projects/{project}:securityRules` endpoint, which returns 400 with
@@ -202,7 +207,7 @@ automatic configuration for that field rather than adding to it.
 | `households/{hid}/members/{uid}` | member | self only, and either `joinedWithCode` equals the household's current code with `role == 'member'`, or the household's `createdBy == uid` with `role == 'owner'` | self (`displayName`, `email`, `photoUrl`), or owner (`role`); `id`/`joinedAt` immutable | self (leave), or owner (remove) |
 | `households/{hid}/contacts/{cid}` | member | member, valid shape, `id == cid` | member, valid shape; `id`/`createdAt` immutable | **denied** — archiving is the removal the app offers |
 | `households/{hid}/relationshipTypes/{rid}` | member | member, valid shape, `id == rid` | member, valid shape; `id`/`createdAt` immutable | member |
-| `households/{hid}/hangouts/{hgid}` | member | member | member | member |
+| `households/{hid}/hangouts/{hgid}` | member | member, valid shape, `id == hgid`, `createdBy == uid` | member, valid shape; `id`/`createdBy`/`createdAt` immutable | member |
 | `households/{hid}/plannedHangouts/{pid}` | member | member | member | member |
 | `{path=**}/members/{uid}` (collection group) | own membership only, and only for a query constrained to `id == uid` | n/a | n/a | n/a |
 | `inviteCodes/{code}` | `get` if signed in; `list` **denied** | signed in, `createdBy == uid`, id is a well-formed code | denied — regeneration is create + delete | owner of the household it points at |
@@ -287,6 +292,17 @@ cases that are specific to this design:
 - Member updates their own `displayName`: allowed.
 - Member removes another member: denied. Owner removes another member: allowed.
 - Member removes themselves: allowed.
+
+**Hangouts** (added with the shape rules in M3, 2026-08-18)
+- Member logs a hangout naming themselves as `createdBy`: allowed.
+- Member logs one crediting somebody else: denied.
+- Member edits another member's hangout — date, note, who was there: allowed.
+- Edit attempting to change `createdBy` or `createdAt`: denied.
+- Hangout with an empty `contactIds`: denied.
+- Hangout with more than 50 contacts or more than 20 attendees: denied.
+- Note past 2000 characters: denied.
+- Non-member reads or writes any hangout: denied.
+- Member deletes a hangout: allowed. (Unlike contacts, which have no delete.)
 
 **Immutability**
 - Update attempting to change `households/{hid}.createdAt` / `createdBy` / `id`: denied.

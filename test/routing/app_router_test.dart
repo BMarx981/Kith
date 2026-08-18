@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kith/data/models/auth_user.dart';
 import 'package:kith/data/models/contact.dart';
 import 'package:kith/data/models/contact_priority.dart';
+import 'package:kith/data/models/hangout.dart';
 import 'package:kith/data/models/relationship_type.dart';
 import 'package:kith/features/auth/application/auth_providers.dart';
 import 'package:kith/features/contacts/application/contact_providers.dart';
@@ -14,6 +15,9 @@ import 'package:kith/features/contacts/domain/cadence.dart';
 import 'package:kith/features/contacts/presentation/contact_editor_screen.dart';
 import 'package:kith/features/contacts/presentation/contacts_screen.dart';
 import 'package:kith/features/contacts/presentation/relationship_types_screen.dart';
+import 'package:kith/features/hangouts/application/hangout_providers.dart';
+import 'package:kith/features/hangouts/presentation/hangout_editor_screen.dart';
+import 'package:kith/features/hangouts/presentation/hangouts_screen.dart';
 import 'package:kith/features/household/application/household_providers.dart';
 import 'package:kith/features/household/presentation/household_screen.dart';
 import 'package:kith/features/suggestions/presentation/home_screen.dart';
@@ -22,6 +26,7 @@ import 'package:kith/routing/guards/auth_guard.dart';
 
 import '../helpers/fake_auth_service.dart';
 import '../helpers/fake_contact_repository.dart';
+import '../helpers/fake_hangout_repository.dart';
 import '../helpers/fake_household_repository.dart';
 import '../helpers/fake_relationship_type_repository.dart';
 
@@ -55,6 +60,8 @@ void main() {
         'ContactsRoute': '/contacts',
         'ContactEditorRoute': '/contacts/edit/:contactId',
         'RelationshipTypesRoute': '/contacts/labels',
+        'HangoutsRoute': '/hangouts/:contactId',
+        'HangoutEditorRoute': '/log/:hangoutId',
         'HouseholdRoute': '/household',
         'SignInRoute': '/sign-in',
         'HouseholdOnboardingRoute': '/welcome',
@@ -82,6 +89,8 @@ void main() {
         'ContactsRoute': 2,
         'ContactEditorRoute': 2,
         'RelationshipTypesRoute': 2,
+        'HangoutsRoute': 2,
+        'HangoutEditorRoute': 2,
         'HouseholdRoute': 2,
         'SignInRoute': 0,
         'HouseholdOnboardingRoute': 1,
@@ -108,6 +117,8 @@ void main() {
       addTearDown(contacts.dispose);
       final labels = FakeRelationshipTypeRepository();
       addTearDown(labels.dispose);
+      final hangouts = FakeHangoutRepository();
+      addTearDown(hangouts.dispose);
       final router = buildRouter();
 
       await tester.pumpWidget(
@@ -117,6 +128,7 @@ void main() {
             currentHouseholdIdProvider.overrideWithValue('hid-1'),
             contactRepositoryProvider.overrideWithValue(contacts),
             relationshipTypeRepositoryProvider.overrideWithValue(labels),
+            hangoutRepositoryProvider.overrideWithValue(hangouts),
           ],
           child: MaterialApp.router(routerConfig: router.config()),
         ),
@@ -150,6 +162,8 @@ void main() {
       addTearDown(contacts.dispose);
       final labels = FakeRelationshipTypeRepository();
       addTearDown(labels.dispose);
+      final hangouts = FakeHangoutRepository();
+      addTearDown(hangouts.dispose);
       labels.seed(
         RelationshipType(
           id: 'rid-1',
@@ -178,6 +192,7 @@ void main() {
             currentHouseholdIdProvider.overrideWithValue('hid-1'),
             contactRepositoryProvider.overrideWithValue(contacts),
             relationshipTypeRepositoryProvider.overrideWithValue(labels),
+            hangoutRepositoryProvider.overrideWithValue(hangouts),
           ],
           child: MaterialApp.router(routerConfig: router.config()),
         ),
@@ -205,6 +220,133 @@ void main() {
       await tester.tap(find.text('Marcus'));
       await tester.pumpAndSettle();
       expect(find.text('Edit contact'), findsOneWidget);
+    });
+
+    testWidgets('the home screen reaches the hangouts and the quick log', (
+      tester,
+    ) async {
+      final auth = FakeAuthService(initialUser: user);
+      addTearDown(auth.dispose);
+      final contacts = FakeContactRepository();
+      addTearDown(contacts.dispose);
+      final labels = FakeRelationshipTypeRepository();
+      addTearDown(labels.dispose);
+      final hangouts = FakeHangoutRepository();
+      addTearDown(hangouts.dispose);
+      contacts.seed(
+        Contact(
+          id: 'cid-1',
+          name: 'Marcus',
+          relationshipTypeId: 'rid-1',
+          cadence: Cadence.monthly,
+          priority: ContactPriority.normal,
+          createdAt: DateTime.utc(2026, 8),
+          updatedAt: DateTime.utc(2026, 8),
+        ),
+      );
+      final router = buildRouter();
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authServiceProvider.overrideWithValue(auth),
+            currentHouseholdIdProvider.overrideWithValue('hid-1'),
+            contactRepositoryProvider.overrideWithValue(contacts),
+            relationshipTypeRepositoryProvider.overrideWithValue(labels),
+            hangoutRepositoryProvider.overrideWithValue(hangouts),
+          ],
+          child: MaterialApp.router(routerConfig: router.config()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(HomeScreen.hangoutsKey));
+      await tester.pumpAndSettle();
+      expect(find.byType(HangoutsScreen), findsOneWidget);
+
+      await tester.tap(find.byKey(HangoutsScreen.logKey));
+      await tester.pumpAndSettle();
+      expect(find.byType(HangoutEditorScreen), findsOneWidget);
+      expect(find.text('Log a hangout'), findsOneWidget);
+
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+
+      hangouts.seed(
+        Hangout(
+          id: 'hgid-1',
+          occurredOn: DateTime.utc(2026, 8, 14),
+          contactIds: const ['cid-1'],
+          attendeeIds: const [],
+          createdBy: user.id,
+          createdAt: DateTime.utc(2026, 8, 18),
+          updatedAt: DateTime.utc(2026, 8, 18),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Marcus'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Edit hangout'), findsOneWidget);
+    });
+
+    testWidgets("the contact editor reaches that contact's history", (
+      tester,
+    ) async {
+      final auth = FakeAuthService(initialUser: user);
+      addTearDown(auth.dispose);
+      final contacts = FakeContactRepository();
+      addTearDown(contacts.dispose);
+      final labels = FakeRelationshipTypeRepository();
+      addTearDown(labels.dispose);
+      final hangouts = FakeHangoutRepository();
+      addTearDown(hangouts.dispose);
+      labels.seed(
+        RelationshipType(
+          id: 'rid-1',
+          name: 'Friend',
+          sortOrder: 0,
+          createdAt: DateTime.utc(2026, 8),
+        ),
+      );
+      contacts.seed(
+        Contact(
+          id: 'cid-1',
+          name: 'Marcus',
+          relationshipTypeId: 'rid-1',
+          cadence: Cadence.monthly,
+          priority: ContactPriority.normal,
+          createdAt: DateTime.utc(2026, 8),
+          updatedAt: DateTime.utc(2026, 8),
+        ),
+      );
+      final router = buildRouter();
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authServiceProvider.overrideWithValue(auth),
+            currentHouseholdIdProvider.overrideWithValue('hid-1'),
+            contactRepositoryProvider.overrideWithValue(contacts),
+            relationshipTypeRepositoryProvider.overrideWithValue(labels),
+            hangoutRepositoryProvider.overrideWithValue(hangouts),
+          ],
+          child: MaterialApp.router(routerConfig: router.config()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      unawaited(router.push(ContactEditorRoute(contactId: 'cid-1')));
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.byKey(ContactEditorScreen.historyKey));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(ContactEditorScreen.historyKey));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(HangoutsScreen), findsOneWidget);
+      expect(find.text('Nothing logged with Marcus yet.'), findsOneWidget);
     });
 
     testWidgets('the home screen action reaches the household', (

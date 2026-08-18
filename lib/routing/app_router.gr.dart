@@ -80,6 +80,129 @@ class ContactsRoute extends PageRouteInfo<void> {
 }
 
 /// generated route for
+/// [HangoutEditorScreen]
+class HangoutEditorRoute extends PageRouteInfo<HangoutEditorRouteArgs> {
+  HangoutEditorRoute({
+    String? hangoutId,
+    String? prefilledContactId,
+    Key? key,
+    List<PageRouteInfo>? children,
+  }) : super(
+         HangoutEditorRoute.name,
+         args: HangoutEditorRouteArgs(
+           hangoutId: hangoutId,
+           prefilledContactId: prefilledContactId,
+           key: key,
+         ),
+         rawPathParams: {'hangoutId': hangoutId},
+         rawQueryParams: {'contact': prefilledContactId},
+         initialChildren: children,
+       );
+
+  static const String name = 'HangoutEditorRoute';
+
+  static PageInfo page = PageInfo(
+    name,
+    builder: (data) {
+      final pathParams = data.inheritedPathParams;
+      final queryParams = data.queryParams;
+      final args = data.argsAs<HangoutEditorRouteArgs>(
+        orElse: () => HangoutEditorRouteArgs(
+          hangoutId: pathParams.optString('hangoutId'),
+          prefilledContactId: queryParams.optString('contact'),
+        ),
+      );
+      return HangoutEditorScreen(
+        hangoutId: args.hangoutId,
+        prefilledContactId: args.prefilledContactId,
+        key: args.key,
+      );
+    },
+  );
+}
+
+class HangoutEditorRouteArgs {
+  const HangoutEditorRouteArgs({
+    this.hangoutId,
+    this.prefilledContactId,
+    this.key,
+  });
+
+  final String? hangoutId;
+
+  final String? prefilledContactId;
+
+  final Key? key;
+
+  @override
+  String toString() {
+    return 'HangoutEditorRouteArgs{hangoutId: $hangoutId, prefilledContactId: $prefilledContactId, key: $key}';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is! HangoutEditorRouteArgs) return false;
+    return hangoutId == other.hangoutId &&
+        prefilledContactId == other.prefilledContactId &&
+        key == other.key;
+  }
+
+  @override
+  int get hashCode =>
+      hangoutId.hashCode ^ prefilledContactId.hashCode ^ key.hashCode;
+}
+
+/// generated route for
+/// [HangoutsScreen]
+class HangoutsRoute extends PageRouteInfo<HangoutsRouteArgs> {
+  HangoutsRoute({String? contactId, Key? key, List<PageRouteInfo>? children})
+    : super(
+        HangoutsRoute.name,
+        args: HangoutsRouteArgs(contactId: contactId, key: key),
+        rawPathParams: {'contactId': contactId},
+        initialChildren: children,
+      );
+
+  static const String name = 'HangoutsRoute';
+
+  static PageInfo page = PageInfo(
+    name,
+    builder: (data) {
+      final pathParams = data.inheritedPathParams;
+      final args = data.argsAs<HangoutsRouteArgs>(
+        orElse: () =>
+            HangoutsRouteArgs(contactId: pathParams.optString('contactId')),
+      );
+      return HangoutsScreen(contactId: args.contactId, key: args.key);
+    },
+  );
+}
+
+class HangoutsRouteArgs {
+  const HangoutsRouteArgs({this.contactId, this.key});
+
+  final String? contactId;
+
+  final Key? key;
+
+  @override
+  String toString() {
+    return 'HangoutsRouteArgs{contactId: $contactId, key: $key}';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is! HangoutsRouteArgs) return false;
+    return contactId == other.contactId && key == other.key;
+  }
+
+  @override
+  int get hashCode => contactId.hashCode ^ key.hashCode;
+}
+
+/// generated route for
 /// [HomeScreen]
 class HomeRoute extends PageRouteInfo<void> {
   const HomeRoute({List<PageRouteInfo>? children})

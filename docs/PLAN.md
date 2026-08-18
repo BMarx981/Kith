@@ -42,7 +42,12 @@ A shared household app that tracks friends — yours and your kids' — shows ho
 - **Fresh** (green): < 0.75
 - **Due** (amber): 0.75 – 1.25
 - **Overdue** (red): > 1.25
-- **Never seen** and **no hangouts logged** are distinct states with their own visuals.
+- **Never** (neutral): no hangout has ever been logged for this contact. Built as
+  one fourth state rather than two, because "never seen" and "no hangouts logged"
+  name the same condition from the two ends, and §4's golden list already spells
+  the set as fresh/due/overdue/never. It is deliberately not a shade of red: with
+  no last hangout there is no ratio, so the gauge draws no arc and the freshness
+  sort puts these contacts last rather than inventing a ratio from `createdAt`.
 
 Rendered as a ring/arc gauge on the contact card and a sortable column in list view. The gauge is a pure function of (lastHangoutDate, cadence, now) — trivially unit-testable, no side effects.
 

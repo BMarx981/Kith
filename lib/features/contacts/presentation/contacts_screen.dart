@@ -2,6 +2,7 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kith/app/theme.dart';
+import 'package:kith/app/widgets/freshness_gauge.dart';
 import 'package:kith/core/result/failure.dart';
 import 'package:kith/data/models/contact.dart';
 import 'package:kith/data/models/relationship_type.dart';
@@ -9,6 +10,9 @@ import 'package:kith/features/contacts/application/contact_list_controller.dart'
 import 'package:kith/features/contacts/application/contact_providers.dart';
 import 'package:kith/features/contacts/domain/contact_view.dart';
 import 'package:kith/features/contacts/presentation/contact_failure_message.dart';
+import 'package:kith/features/hangouts/application/hangout_providers.dart';
+import 'package:kith/features/hangouts/domain/freshness.dart';
+import 'package:kith/features/hangouts/domain/freshness_index.dart';
 import 'package:kith/features/household/application/household_providers.dart';
 import 'package:kith/routing/app_router.dart';
 
@@ -89,6 +93,9 @@ class _ContactsBody extends ConsumerWidget {
     final contacts = ref.watch(contactsProvider(householdId));
     final types = ref.watch(relationshipTypesProvider(householdId));
     final view = ref.watch(contactListControllerProvider);
+    // Watched here rather than per row, so one pass over the timeline serves
+    // the sort and every gauge on screen.
+    final freshness = ref.watch(freshnessIndexProvider(householdId));
 
     return switch ((contacts, types)) {
       (AsyncError(:final error), _) ||
@@ -96,8 +103,9 @@ class _ContactsBody extends ConsumerWidget {
       (AsyncData(value: final all), AsyncData(value: final labels)) =>
         _ContactList(
           householdId: householdId,
-          contacts: view.apply(all),
+          contacts: view.apply(all, freshness: freshness),
           labels: {for (final label in labels) label.id: label},
+          freshness: freshness,
           hasAnyContact: all.isNotEmpty,
           view: view,
         ),
@@ -118,6 +126,7 @@ class _ContactList extends ConsumerWidget {
     required this.householdId,
     required this.contacts,
     required this.labels,
+    required this.freshness,
     required this.hasAnyContact,
     required this.view,
   });
@@ -125,6 +134,7 @@ class _ContactList extends ConsumerWidget {
   final String householdId;
   final List<Contact> contacts;
   final Map<String, RelationshipType> labels;
+  final FreshnessIndex freshness;
   final bool hasAnyContact;
   final ContactView view;
 
@@ -167,6 +177,7 @@ class _ContactList extends ConsumerWidget {
                   itemBuilder: (context, index) => _ContactRow(
                     contact: contacts[index],
                     label: labels[contacts[index].relationshipTypeId],
+                    freshness: freshness.of(contacts[index]),
                   ),
                 ),
         ),
@@ -215,13 +226,21 @@ class _FilterChips extends ConsumerWidget {
 }
 
 class _ContactRow extends StatelessWidget {
-  const _ContactRow({required this.contact, required this.label});
+  const _ContactRow({
+    required this.contact,
+    required this.label,
+    required this.freshness,
+  });
 
   final Contact contact;
 
   /// The contact's relationship label, or null if it was deleted from under
   /// them, which reassignment is meant to prevent but a stale stream can show.
   final RelationshipType? label;
+
+  /// Where they sit against their cadence, drawn as the ring round the
+  /// avatar.
+  final Freshness freshness;
 
   @override
   Widget build(BuildContext context) {
@@ -230,14 +249,21 @@ class _ContactRow extends StatelessWidget {
     return ListTile(
       onTap: () =>
           context.router.push(ContactEditorRoute(contactId: contact.id)),
-      leading: CircleAvatar(
-        backgroundColor: theme.colorScheme.surfaceContainerHighest,
-        foregroundColor: theme.colorScheme.onSurfaceVariant,
-        child: Text(_initialOf(contact.name)),
+      leading: FreshnessGauge(
+        freshness: freshness,
+        child: CircleAvatar(
+          backgroundColor: theme.colorScheme.surfaceContainerHighest,
+          foregroundColor: theme.colorScheme.onSurfaceVariant,
+          child: Text(_initialOf(contact.name)),
+        ),
       ),
       title: Text(contact.name),
       subtitle: Text(
-        [label?.name ?? 'No label', contact.cadence.label].join('  ·  '),
+        [
+          label?.name ?? 'No label',
+          contact.cadence.label,
+          freshness.lastSeenLabel,
+        ].join('  ·  '),
       ),
       trailing: contact.isArchived ? const Chip(label: Text('Archived')) : null,
     );

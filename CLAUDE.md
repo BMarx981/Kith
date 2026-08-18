@@ -27,6 +27,7 @@ Run analyze + the full test suite before declaring any task done. Never mark wor
 - **Never edit `*.gr.dart`.** Change the route declarations, rerun build_runner.
 - **Every model ships with round-trip tests**: `fromMap(toMap(x)) == x`, `copyWith` covering every field, and equality/hashCode cases. Use the shared model-test helper in `test/helpers/`.
 - **All "now" reads go through `clockProvider`** (package:clock). Direct `DateTime.now()` in lib/ is a bug.
+- **A calendar day is not an instant.** A hangout happened on a date, so `Hangout.occurredOn` is midnight UTC of that date, built through `CalendarDay` in `lib/core/time/`. Never `toUtc()` a day — it is already one, and shifting it again moves it a square.
 - **UI never imports Firestore types.** Screens/widgets consume domain models via providers only. Firestore stays behind repository interfaces in `data/repositories/`.
 - **Firestore paths are household-scoped**: household *data* lives under `households/{hid}/...`. The one permitted top-level collection is `inviteCodes/{code}`, a code → household id pointer holding no user data; it exists because a prospective member has to resolve a code before they are allowed to read anything inside the household. Adding any other top-level collection needs explicit approval. Every rules change ships with an emulator rules test (deferred as of 2026-08-16 — see `docs/M1-FIRESTORE-RULES.md`).
 - Small diffs. One concern per commit. Explain what changed and why in the summary so it can be reviewed as a diff.
@@ -52,9 +53,10 @@ Run analyze + the full test suite before declaring any task done. Never mark wor
 
 ## Domain quick reference
 
-- Freshness: `daysSinceLast / cadenceDays` → fresh < 0.75 ≤ due ≤ 1.25 < overdue. "Never seen" and "no hangouts" are distinct states.
+- Freshness: `daysSinceLast / cadenceDays` → fresh < 0.75 ≤ due ≤ 1.25 < overdue, plus a fourth `never` reading for a contact with no hangout behind them. Never is not a shade of overdue: there is no ratio, so it sorts last and draws no arc.
 - Suggestion score: `overdueRatio × priorityWeight × recencyDamping`; contacts with an active PlannedHangout are damped. Deterministic under a fixed clock.
 - RelationshipTypes are per-household, editable, deletable only with reassignment.
+- Hangouts are one event naming several contacts, and they do hard-delete: a mislogged meetup is an error in the record, not history. Contacts still only archive.
 - Kid's-friend contacts carry parent/guardian name + phone as first-class fields.
 - Calendar: `CalendarSink` interface. `GoogleCalendarSink` is the supported path (Skylight subscribes to the Google Calendar). `SkylightDirectSink` (unofficial reverse-engineered API) is experimental, feature-flagged, and allowed to fail gracefully — never let it block core flows.
 

@@ -1,8 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kith/data/models/contact.dart';
 import 'package:kith/data/models/contact_priority.dart';
+import 'package:kith/data/models/hangout.dart';
 import 'package:kith/features/contacts/domain/cadence.dart';
 import 'package:kith/features/contacts/domain/contact_view.dart';
+import 'package:kith/features/hangouts/domain/freshness_index.dart';
 
 void main() {
   Contact contact({
@@ -171,6 +173,80 @@ void main() {
       for (final sort in ContactSort.values) {
         expect(ContactView(sort: sort).apply(const []), isEmpty);
       }
+    });
+  });
+
+  group('ContactView.apply by freshness', () {
+    final now = DateTime.utc(2026, 8, 18);
+
+    Hangout hangout(String id, int daysAgo, List<String> contactIds) => Hangout(
+      id: id,
+      occurredOn: now.subtract(Duration(days: daysAgo)),
+      contactIds: contactIds,
+      attendeeIds: const ['uid-1'],
+      createdBy: 'uid-1',
+      createdAt: now,
+      updatedAt: now,
+    );
+
+    FreshnessIndex indexOf(List<Hangout> hangouts) =>
+        FreshnessIndex.from(hangouts: hangouts, now: now);
+
+    test('puts the most overdue contact first', () {
+      // All three were seen 20 days ago, so only the cadence separates them:
+      // ada is weekly, marcus is monthly and zoe is quarterly.
+      final index = indexOf([
+        hangout('h1', 20, ['c1', 'c2', 'c3']),
+      ]);
+
+      expect(
+        const ContactView(
+          sort: ContactSort.freshness,
+        ).apply(all, freshness: index),
+        [ada, marcus, zoe],
+      );
+    });
+
+    test('sinks a contact with nothing logged to the bottom', () {
+      final index = indexOf([
+        hangout('h1', 20, ['c1', 'c3']),
+      ]);
+
+      expect(
+        const ContactView(
+          sort: ContactSort.freshness,
+        ).apply(all, freshness: index).last,
+        ada,
+      );
+    });
+
+    test('breaks a tie between unmeasured contacts by name', () {
+      expect(
+        const ContactView(
+          sort: ContactSort.freshness,
+        ).apply(all, freshness: FreshnessIndex.empty),
+        [ada, marcus, zoe],
+      );
+    });
+
+    test('degrades to the name sort with no index given', () {
+      expect(
+        const ContactView(sort: ContactSort.freshness).apply(all),
+        [ada, marcus, zoe],
+      );
+    });
+
+    test('the other sorts ignore the index entirely', () {
+      final index = indexOf([
+        hangout('h1', 20, ['c1']),
+      ]);
+
+      expect(
+        const ContactView(
+          sort: ContactSort.cadence,
+        ).apply(all, freshness: index),
+        const ContactView(sort: ContactSort.cadence).apply(all),
+      );
     });
   });
 

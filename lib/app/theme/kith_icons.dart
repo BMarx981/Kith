@@ -53,4 +53,13 @@ abstract final class KithIcons {
 
   /// Grab handle for dragging a relationship label up or down its list.
   static const reorder = IconData(0xe1fc, fontFamily: _family);
+
+  /// A logged hangout: the timeline, and the way through to it.
+  static const hangout = IconData(0xe712, fontFamily: _family);
+
+  /// The day a hangout happened on.
+  static const date = IconData(0xe10a, fontFamily: _family);
+
+  /// One contact's hangout history.
+  static const history = IconData(0xe1a0, fontFamily: _family);
 }

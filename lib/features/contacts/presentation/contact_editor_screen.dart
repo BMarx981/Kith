@@ -14,6 +14,7 @@ import 'package:kith/features/contacts/domain/contact_draft.dart';
 import 'package:kith/features/contacts/domain/contact_field_validator.dart';
 import 'package:kith/features/contacts/presentation/contact_failure_message.dart';
 import 'package:kith/features/household/application/household_providers.dart';
+import 'package:kith/routing/app_router.dart';
 
 /// Adds a contact, or edits one that already exists.
 ///
@@ -38,6 +39,9 @@ class ContactEditorScreen extends ConsumerWidget {
 
   /// Identifies the archive-or-restore action to tests.
   static const archiveKey = Key('contactEditor.archive');
+
+  /// Identifies the way through to this contact's hangouts to tests.
+  static const historyKey = Key('contactEditor.history');
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -374,6 +378,16 @@ class _ContactFormState extends ConsumerState<_ContactForm> {
             ),
             if (existing != null) ...[
               const SizedBox(height: KithSpacing.xs),
+              TextButton.icon(
+                key: ContactEditorScreen.historyKey,
+                onPressed: state.isSubmitting
+                    ? null
+                    : () => context.router.push(
+                        HangoutsRoute(contactId: existing.id),
+                      ),
+                icon: const Icon(KithIcons.history),
+                label: const Text('See their hangouts'),
+              ),
               TextButton(
                 key: ContactEditorScreen.archiveKey,
                 onPressed: state.isSubmitting ? null : _toggleArchived,

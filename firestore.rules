@@ -261,15 +261,58 @@ service cloud.firestore {
         allow delete: if isMember(hid);
       }
 
-      // ---- the rest ------------------------------------------------------
+      // ---- households/{hid}/hangouts/{hgid} -------------------------------
       //
-      // Shape validation lands with the models, in M3. Until then membership
-      // is the whole gate, which is the same posture the app ships with for
-      // these paths anyway: any member may write any of them.
+      // A logged meetup. Any member may log, edit or remove one: the point of
+      // the app is that both adults keep the same record, and a hangout one
+      // partner logged against the wrong person is the other partner's to fix.
+      //
+      // What is pinned is authorship. createdBy must be the caller on create
+      // and cannot move afterwards, so an edit can change the date, the note
+      // and who was there, but never who logged it.
+
+      function isValidHangout(hgid, data) {
+        return data.keys().hasOnly(['id', 'occurredOn', 'contactIds', 'attendeeIds',
+            'createdBy', 'createdAt', 'updatedAt', 'note']) &&
+          data.keys().hasAll(['id', 'occurredOn', 'contactIds', 'attendeeIds',
+            'createdBy', 'createdAt', 'updatedAt']) &&
+          data.id == hgid &&
+          isEpochMillis(data.occurredOn) &&
+          data.contactIds is list &&
+          data.contactIds.size() > 0 && data.contactIds.size() <= 50 &&
+          data.attendeeIds is list && data.attendeeIds.size() <= 20 &&
+          data.createdBy is string &&
+          isEpochMillis(data.createdAt) &&
+          isEpochMillis(data.updatedAt) &&
+          isOptionalString(data, 'note', 2000);
+      }
 
       match /hangouts/{hgid} {
-        allow read, write: if isMember(hid);
+        allow read: if isMember(hid);
+
+        allow create: if isMember(hid) &&
+          isValidHangout(hgid, request.resource.data) &&
+          request.resource.data.createdBy == request.auth.uid;
+
+        // The form sends a partial update that leaves id, createdBy and
+        // createdAt alone, so the merged document is what gets validated and
+        // the three immutable fields are pinned separately.
+        allow update: if isMember(hid) &&
+          isValidHangout(hgid, request.resource.data) &&
+          unchanged('id') &&
+          unchanged('createdBy') &&
+          unchanged('createdAt');
+
+        // Hangouts do delete, unlike contacts: a mislogged meetup is an error
+        // in the record rather than history, and nothing hangs off one.
+        allow delete: if isMember(hid);
       }
+
+      // ---- the rest ------------------------------------------------------
+      //
+      // Shape validation lands with the model, in M4. Until then membership is
+      // the whole gate, which is the same posture the app ships with for this
+      // path anyway: any member may write it.
 
       match /plannedHangouts/{pid} {
         allow read, write: if isMember(hid);
