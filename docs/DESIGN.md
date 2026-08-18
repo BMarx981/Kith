@@ -286,6 +286,13 @@ Set once in `KithTheme._build`, so screens stay free of styling code.
 
 - Contact rows and suggestion cards are **hairline surfaces**: a border and a
   fill, never a shadow.
+- A **suggestion card** is the shipped example: a `Card` holding the contact's
+  gauged avatar, their name in `titleMedium`, the reason in `bodySmall`
+  `onSurfaceVariant`, an optional plan chip, and its actions on one right-aligned
+  row — two `TextButton`s for the deferrals and one `FilledButton` for "Plan it",
+  so the answer the section is asking for is the one that reads loudest. It is a
+  card rather than a `ListTile` because a row of buttons under a list row reads
+  as a mistake.
 - A list row is a `ListTile` with a `surfaceContainerHighest` avatar carrying
   the initial, the name as the title, and the secondary facts joined by a
   middle dot in the subtitle. Contacts and household members are laid out the

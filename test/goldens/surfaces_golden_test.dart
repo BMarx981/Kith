@@ -9,6 +9,8 @@ import 'package:kith/data/models/auth_user.dart';
 import 'package:kith/data/models/contact.dart';
 import 'package:kith/data/models/contact_priority.dart';
 import 'package:kith/data/models/hangout.dart';
+import 'package:kith/data/models/planned_hangout.dart';
+import 'package:kith/data/models/planned_hangout_status.dart';
 import 'package:kith/data/models/relationship_type.dart';
 import 'package:kith/features/auth/application/auth_providers.dart';
 import 'package:kith/features/auth/presentation/sign_in_screen.dart';
@@ -23,11 +25,14 @@ import 'package:kith/features/hangouts/presentation/hangouts_screen.dart';
 import 'package:kith/features/household/application/household_providers.dart';
 import 'package:kith/features/household/domain/invite_code.dart';
 import 'package:kith/features/household/presentation/household_screen.dart';
+import 'package:kith/features/suggestions/application/suggestion_providers.dart';
+import 'package:kith/features/suggestions/presentation/home_screen.dart';
 
 import '../helpers/fake_auth_service.dart';
 import '../helpers/fake_contact_repository.dart';
 import '../helpers/fake_hangout_repository.dart';
 import '../helpers/fake_household_repository.dart';
+import '../helpers/fake_planned_hangout_repository.dart';
 import '../helpers/fake_relationship_type_repository.dart';
 import '../helpers/load_fonts.dart';
 import '../helpers/pump_app.dart';
@@ -55,6 +60,7 @@ void main() {
   late FakeContactRepository contacts;
   late FakeRelationshipTypeRepository labels;
   late FakeHangoutRepository hangouts;
+  late FakePlannedHangoutRepository plans;
 
   setUp(() {
     auth = FakeAuthService(initialUser: owner);
@@ -67,6 +73,8 @@ void main() {
     addTearDown(labels.dispose);
     hangouts = FakeHangoutRepository();
     addTearDown(hangouts.dispose);
+    plans = FakePlannedHangoutRepository();
+    addTearDown(plans.dispose);
   });
 
   List<Override> overrides() => [
@@ -76,6 +84,7 @@ void main() {
     contactRepositoryProvider.overrideWithValue(contacts),
     relationshipTypeRepositoryProvider.overrideWithValue(labels),
     hangoutRepositoryProvider.overrideWithValue(hangouts),
+    plannedHangoutRepositoryProvider.overrideWithValue(plans),
     // Pinned, because every gauge in these surfaces is a function of now.
     clockProvider.overrideWithValue(Clock.fixed(seeded)),
   ];
@@ -323,6 +332,63 @@ void main() {
     );
 
     await pumpSurface(tester, const HangoutEditorScreen(), theme: theme);
+  });
+
+  goldenTest('the Reconnect section, ranked', 'home', (tester, theme) async {
+    seedContacts();
+    // Priya is a week overdue and has an arrangement standing, which is the
+    // one card state the ranked list cannot produce on its own.
+    plans.seed(
+      PlannedHangout(
+        id: 'pid-1',
+        plannedFor: seeded.add(const Duration(days: 7)),
+        contactIds: const ['cid-1'],
+        status: PlannedHangoutStatus.proposed,
+        createdBy: 'uid-owner',
+        createdAt: seeded,
+        updatedAt: seeded,
+      ),
+    );
+
+    await pumpSurface(tester, const HomeScreen(), theme: theme);
+  });
+
+  goldenTest('Reconnect with nobody overdue', 'home_clear', (
+    tester,
+    theme,
+  ) async {
+    labels.seed(
+      RelationshipType(
+        id: 'rid-0',
+        name: 'Friend',
+        sortOrder: 0,
+        createdAt: seeded,
+      ),
+    );
+    contacts.seed(
+      Contact(
+        id: 'cid-0',
+        name: 'Marcus Bell',
+        relationshipTypeId: 'rid-0',
+        cadence: Cadence.monthly,
+        priority: ContactPriority.normal,
+        createdAt: seeded,
+        updatedAt: seeded,
+      ),
+    );
+    hangouts.seed(
+      Hangout(
+        id: 'hgid-1',
+        occurredOn: seeded.subtract(const Duration(days: 2)),
+        contactIds: const ['cid-0'],
+        attendeeIds: const ['uid-owner'],
+        createdBy: 'uid-owner',
+        createdAt: seeded,
+        updatedAt: seeded,
+      ),
+    );
+
+    await pumpSurface(tester, const HomeScreen(), theme: theme);
   });
 
   goldenTest('the splash held before the first route', 'splash', (

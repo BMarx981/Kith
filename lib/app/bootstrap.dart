@@ -6,12 +6,14 @@ import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:kith/data/repositories/firestore_contact_repository.dart';
 import 'package:kith/data/repositories/firestore_hangout_repository.dart';
 import 'package:kith/data/repositories/firestore_household_repository.dart';
+import 'package:kith/data/repositories/firestore_planned_hangout_repository.dart';
 import 'package:kith/data/repositories/firestore_relationship_type_repository.dart';
 import 'package:kith/data/services/firebase_auth_service.dart';
 import 'package:kith/features/auth/application/auth_providers.dart';
 import 'package:kith/features/contacts/application/contact_providers.dart';
 import 'package:kith/features/hangouts/application/hangout_providers.dart';
 import 'package:kith/features/household/application/household_providers.dart';
+import 'package:kith/features/suggestions/application/suggestion_providers.dart';
 
 /// Provider overrides that bind the graph to live Firebase services.
 ///
@@ -33,5 +35,8 @@ List<Override> firebaseOverrides({
   ),
   hangoutRepositoryProvider.overrideWithValue(
     FirestoreHangoutRepository(firestore),
+  ),
+  plannedHangoutRepositoryProvider.overrideWithValue(
+    FirestorePlannedHangoutRepository(firestore),
   ),
 ];

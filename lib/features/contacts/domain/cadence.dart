@@ -98,6 +98,17 @@ class Cadence {
     _ => 'Every $days days',
   };
 
+  /// The interval as it reads mid-sentence: "you usually see Marcus
+  /// monthly", "you usually see Ana every 2 weeks".
+  ///
+  /// [label] with its first letter dropped to lower case, rather than a
+  /// second table of wordings that could drift from the first. Every label is
+  /// ASCII and starts with a word, so the first code unit is the first letter.
+  String get phrase {
+    final label = this.label;
+    return label[0].toLowerCase() + label.substring(1);
+  }
+
   @override
   bool operator ==(Object other) =>
       identical(this, other) || other is Cadence && other.days == days;

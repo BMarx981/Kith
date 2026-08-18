@@ -67,6 +67,26 @@ void main() {
       expect(Cadence.twiceAYear.label, 'Twice a year');
     });
 
+    test('phrases each interval to sit mid-sentence', () {
+      expect(Cadence.weekly.phrase, 'weekly');
+      expect(Cadence.biweekly.phrase, 'every 2 weeks');
+      expect(Cadence.monthly.phrase, 'monthly');
+      expect(Cadence.quarterly.phrase, 'every 3 months');
+      expect(Cadence.twiceAYear.phrase, 'twice a year');
+      expect(const Cadence.custom(45).phrase, 'every 45 days');
+      expect(const Cadence.custom(1).phrase, 'daily');
+    });
+
+    test('phrases only differ from labels in the first letter', () {
+      for (final cadence in [
+        ...Cadence.presets,
+        const Cadence.custom(45),
+      ]) {
+        expect(cadence.phrase.substring(1), cadence.label.substring(1));
+        expect(cadence.phrase, cadence.label.toLowerCase());
+      }
+    });
+
     test('labels a custom interval by its day count', () {
       expect(const Cadence.custom(45).label, 'Every 45 days');
       expect(const Cadence.custom(1).label, 'Daily');

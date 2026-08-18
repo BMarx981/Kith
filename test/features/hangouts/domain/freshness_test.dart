@@ -132,6 +132,44 @@ void main() {
     }
   });
 
+  group('elapsedLabel', () {
+    final cases = <(int?, String?)>[
+      (null, null),
+      (0, 'less than a day'),
+      (1, 'a day'),
+      (3, '3 days'),
+      (6, '6 days'),
+      (7, 'a week'),
+      (13, 'a week'),
+      (14, '2 weeks'),
+      (42, '6 weeks'),
+      (59, '8 weeks'),
+      (60, '2 months'),
+      (364, '12 months'),
+      (365, '1+ years'),
+      (900, '2+ years'),
+    ];
+
+    for (final (daysAgo, expected) in cases) {
+      test('${daysAgo ?? 'no'} days ago reads "${expected ?? 'nothing'}"', () {
+        final freshness = daysAgo == null
+            ? const Freshness.never()
+            : at(daysAgo, cadence: const Cadence.custom(Cadence.maxDays));
+
+        expect(freshness.elapsedLabel, expected);
+      });
+    }
+
+    test('is the span the last-seen label is built from', () {
+      final freshness = at(
+        42,
+        cadence: const Cadence.custom(Cadence.maxDays),
+      );
+
+      expect(freshness.lastSeenLabel, 'Seen ${freshness.elapsedLabel} ago');
+    });
+  });
+
   group('value semantics', () {
     test('two readings of the same day and cadence are equal', () {
       expect(at(10), at(10));

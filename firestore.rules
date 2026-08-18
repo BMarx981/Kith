@@ -308,14 +308,54 @@ service cloud.firestore {
         allow delete: if isMember(hid);
       }
 
-      // ---- the rest ------------------------------------------------------
+      // ---- households/{hid}/plannedHangouts/{pid} -------------------------
       //
-      // Shape validation lands with the model, in M4. Until then membership is
-      // the whole gate, which is the same posture the app ships with for this
-      // path anyway: any member may write it.
+      // An intent about a meetup still to come: an arrangement, or a "not now"
+      // that defers a suggestion. Any member may make, keep or drop one, for
+      // the same reason they may log a hangout: the Reconnect section is a
+      // shared prompt, and either partner acting on it is the point.
+      //
+      // Authorship is pinned the way a hangout's is: createdBy must be the
+      // caller on create and cannot move afterwards. calendarEventId is
+      // writable here and unused by the app until M5 confirms a plan onto the
+      // household's calendar.
+
+      function isValidPlannedHangout(pid, data) {
+        return data.keys().hasOnly(['id', 'plannedFor', 'contactIds', 'status',
+            'createdBy', 'createdAt', 'updatedAt', 'note', 'calendarEventId']) &&
+          data.keys().hasAll(['id', 'plannedFor', 'contactIds', 'status',
+            'createdBy', 'createdAt', 'updatedAt']) &&
+          data.id == pid &&
+          isEpochMillis(data.plannedFor) &&
+          data.contactIds is list &&
+          data.contactIds.size() > 0 && data.contactIds.size() <= 50 &&
+          data.status in ['proposed', 'confirmed', 'snoozed'] &&
+          data.createdBy is string &&
+          isEpochMillis(data.createdAt) &&
+          isEpochMillis(data.updatedAt) &&
+          isOptionalString(data, 'note', 2000) &&
+          isOptionalString(data, 'calendarEventId', 1024);
+      }
 
       match /plannedHangouts/{pid} {
-        allow read, write: if isMember(hid);
+        allow read: if isMember(hid);
+
+        allow create: if isMember(hid) &&
+          isValidPlannedHangout(pid, request.resource.data) &&
+          request.resource.data.createdBy == request.auth.uid;
+
+        // Confirming a plan onto the calendar is an update over an existing
+        // document, so the merged document is what gets validated and the
+        // three immutable fields are pinned separately.
+        allow update: if isMember(hid) &&
+          isValidPlannedHangout(pid, request.resource.data) &&
+          unchanged('id') &&
+          unchanged('createdBy') &&
+          unchanged('createdAt');
+
+        // Plans do delete, like hangouts: an arrangement that is off, or a
+        // deferral somebody undid, is not history worth keeping.
+        allow delete: if isMember(hid);
       }
     }
 

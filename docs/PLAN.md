@@ -26,7 +26,7 @@ A shared household app that tracks friends — yours and your kids' — shows ho
 | Contact | A person (or family unit) you track. |
 | RelationshipType | Editable, per-household label list. Seeded: Friend, Family, Neighbor, Child's friend, Coworker. Fully CRUD-able. |
 | Hangout | A logged meetup: date, contacts involved, who from the household attended, note. |
-| PlannedHangout | A future intent: contact(s), proposed date/window, status, calendar event link. |
+| PlannedHangout | A future intent: contact(s), a day, status, calendar event link. Covers both halves of acting on a suggestion — an arrangement to meet, and a "not now" that defers one. |
 
 ### Contact fields
 - Name, relationship type (FK to RelationshipType)
@@ -58,12 +58,60 @@ Pure Dart, no I/O. Ranks non-archived contacts by:
 score = overdueRatio * priorityWeight * recencyDamping
 ```
 
-- `overdueRatio` = freshness value, clamped
+- `overdueRatio` = freshness ratio, clamped at **3.0**. Past three times the
+  cadence the number keeps climbing but says nothing new, and an uncapped ratio
+  would let one long-forgotten contact hold the top of the list forever while
+  priority stopped mattering at all.
 - `priorityWeight` = 0.5 / 1.0 / 1.5
-- `recencyDamping` suppresses contacts with a PlannedHangout already scheduled
-- Tie-break: longest absolute time since last hangout
+- `recencyDamping` = **0.25** while a PlannedHangout is standing, 1 otherwise.
+  A quarter rather than zero: somebody you have arranged to see is not a person
+  to prompt about, but hiding them would mean the list quietly forgets the most
+  overdue person in the household the moment a plan is made, and the plan is
+  worth seeing on the card.
+- Tie-break: longest absolute time since last hangout, then name, then id, so
+  the ranking is a total order and never reshuffles between rebuilds.
 
-Output: top-N suggestions with a human reason string ("It's been 6 weeks — you usually see Marcus monthly"). Deterministic given a fixed clock → 100% coverable with table-driven tests.
+Who is left out, and why:
+
+- **Archived contacts.** Archiving is Kith's removal; a removed person is not
+  someone to be prompted about.
+- **Fresh contacts.** The section answers "who is overdue", so somebody seen
+  well inside their cadence has nothing to answer, and a household that is on
+  top of everything sees an empty section rather than being told to reconnect
+  with the friend they saw yesterday.
+- **Deferred contacts**, while the deferral runs (below).
+
+A contact with no hangout behind them is *not* left out. They carry no ratio, so
+they cannot be scored against anyone and they sort below every measured
+contact — the same rule the freshness sort follows — but somebody deliberately
+added and never seen is exactly who the section exists for.
+
+Output: top-N (default **5**, the top of the 3–5 band) suggestions with a human
+reason string ("It's been 6 weeks — you usually see Marcus monthly"). The
+sentence carries the name so it also stands alone in a notification digest.
+Deterministic given a fixed clock → 100% coverable with table-driven tests.
+
+### Acting on a suggestion
+
+Three answers, all of which write a PlannedHangout, because all three are a
+future intent about a person on a day:
+
+| Action | Status | Day | Effect |
+|---|---|---|---|
+| Plan it | `proposed` | the day you picked | Damps the score by `recencyDamping`; the card says what is arranged |
+| Snooze | `snoozed` | a week out | Removes the contact from the section until that day |
+| Dismiss | `snoozed` | one whole cadence out | The same, for longer |
+
+There is deliberately no "never suggest again": a contact you never want
+prompted about is a contact to archive, so dismissing defers rather than
+deletes. A plan runs out at the end of the day it names — an arrangement whose
+day has gone by either happened, in which case a logged hangout has already
+reset the gauge, or it did not, in which case the contact belongs back in the
+section rather than damped by an arrangement nobody kept.
+
+A snooze outranks an arrangement for the same contact, so saying "not now"
+after making a plan still silences the prompt; otherwise the soonest plan
+speaks for them.
 
 ### Suggestion surfacing
 - Home screen "Reconnect" section (top 3–5)
@@ -210,6 +258,13 @@ same. The sort control gains the option alongside the gauge.
 - Home "Reconnect" section with reason strings
 - "Plan it" flow → creates PlannedHangout (no calendar yet), snooze/dismiss
 - **Gate:** suggestions match hand-computed expectations for seeded fixtures.
+
+Snooze and dismiss are PlannedHangout statuses rather than a collection or a
+flag of their own: deferring somebody is a dated household act both partners
+should see, not a hidden edit to a shared record, and it is the same shape as
+an arrangement. `PlannedHangout.calendarEventId` ships unwritten in M4 — the
+field is part of the entity, and adding it in M5 would mean migrating documents
+and rules for a value the model already round-trips.
 
 ### M5 — Calendar (Skylight via Google Calendar)
 - Google Calendar OAuth per household, calendar picker/creator

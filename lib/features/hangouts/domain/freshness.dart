@@ -100,10 +100,28 @@ class Freshness {
     0 => 'Seen today',
     1 => 'Seen yesterday',
     final days when days < 7 => 'Seen $days days ago',
+    // "Seen a week ago" would be the elapsed phrase, but a week and a half is
+    // still last week to a person, so this stretch keeps its own wording.
     final days when days < 14 => 'Seen last week',
-    final days when days < 60 => 'Seen ${(days / 7).round()} weeks ago',
-    final days when days < 365 => 'Seen ${(days / 30).round()} months ago',
-    final days => 'Seen ${(days / 365).floor()}+ years ago',
+    _ => 'Seen $elapsedLabel ago',
+  };
+
+  /// The bare span since the last hangout — "6 weeks", "3 days" — or null
+  /// when there has been none.
+  ///
+  /// A phrase rather than a sentence, so it can be dropped into copy that
+  /// puts it somewhere other than the end: "It's been 6 weeks" as much as
+  /// "Seen 6 weeks ago". Coarsens as it lengthens, because nobody wants the
+  /// number of days since they last saw someone two years ago.
+  String? get elapsedLabel => switch (daysSince) {
+    null => null,
+    0 => 'less than a day',
+    1 => 'a day',
+    final days when days < 7 => '$days days',
+    final days when days < 14 => 'a week',
+    final days when days < 60 => '${(days / 7).round()} weeks',
+    final days when days < 365 => '${(days / 30).round()} months',
+    final days => '${(days / 365).floor()}+ years',
   };
 
   /// Which reading a [ratio] falls in. The boundaries belong to `due` at both
