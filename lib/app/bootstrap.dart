@@ -9,6 +9,7 @@ import 'package:kith/data/repositories/firestore_household_repository.dart';
 import 'package:kith/data/repositories/firestore_planned_hangout_repository.dart';
 import 'package:kith/data/repositories/firestore_relationship_type_repository.dart';
 import 'package:kith/data/services/firebase_auth_service.dart';
+import 'package:kith/data/services/plugin_google_sign_in_service.dart';
 import 'package:kith/features/auth/application/auth_providers.dart';
 import 'package:kith/features/contacts/application/contact_providers.dart';
 import 'package:kith/features/hangouts/application/hangout_providers.dart';
@@ -23,7 +24,9 @@ List<Override> firebaseOverrides({
   required FirebaseAuth auth,
   required FirebaseFirestore firestore,
 }) => [
-  authServiceProvider.overrideWithValue(FirebaseAuthService(auth)),
+  authServiceProvider.overrideWithValue(
+    FirebaseAuthService(auth, PluginGoogleSignInService()),
+  ),
   householdRepositoryProvider.overrideWithValue(
     FirestoreHouseholdRepository(firestore, Random.secure()),
   ),

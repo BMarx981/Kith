@@ -2,8 +2,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kith/core/result/failure.dart';
+import 'package:kith/core/result/result.dart';
 import 'package:kith/data/models/auth_user.dart';
 import 'package:kith/data/services/firebase_auth_service.dart';
+import 'package:kith/data/services/google_sign_in_service.dart';
 import 'package:mock_exceptions/mock_exceptions.dart';
 
 void main() {
@@ -356,23 +358,184 @@ void main() {
     });
   });
 
-  group('federated providers', () {
-    test('report themselves as unavailable until they are wired up', () async {
+  group('signInWithGoogle', () {
+    test('exchanges Google tokens for a Firebase session', () async {
+      final auth = MockFirebaseAuth(mockUser: mockUser);
+      final google = _StubGoogleSignInService(
+        const Ok(GoogleTokens(idToken: 'id-token', accessToken: 'access')),
+      );
+      final service = FirebaseAuthService(auth, google);
+
+      final result = await service.signInWithGoogle();
+
+      expect(
+        result.valueOrNull,
+        const AuthUser(
+          id: 'uid-1',
+          email: 'brian@example.com',
+          displayName: 'Brian',
+          photoUrl: 'https://example.com/a.png',
+        ),
+      );
+      expect(google.authenticateCalls, 1);
+    });
+
+    test('passes a cancelled picker straight through', () async {
+      final google = _StubGoogleSignInService(
+        const Err(
+          AuthFailure(AuthFailureReason.cancelled, 'Sign-in was cancelled.'),
+        ),
+      );
+      final service = FirebaseAuthService(MockFirebaseAuth(), google);
+
+      final result = await service.signInWithGoogle();
+
+      expect(
+        result.failureOrNull,
+        isA<AuthFailure>().having(
+          (failure) => failure.reason,
+          'reason',
+          AuthFailureReason.cancelled,
+        ),
+      );
+    });
+
+    test('does not reach Firebase when Google itself failed', () async {
+      final auth = MockFirebaseAuth(mockUser: mockUser);
+      final google = _StubGoogleSignInService(
+        const Err(AuthFailure(AuthFailureReason.network, 'Offline.')),
+      );
+      final service = FirebaseAuthService(auth, google);
+
+      final result = await service.signInWithGoogle();
+
+      expect(result.failureOrNull, isA<AuthFailure>());
+      expect(auth.currentUser, isNull);
+    });
+
+    test('rejects a sign-in that produced no usable token', () async {
+      final google = _StubGoogleSignInService(const Ok(GoogleTokens()));
+      final service = FirebaseAuthService(MockFirebaseAuth(), google);
+
+      final result = await service.signInWithGoogle();
+
+      expect(
+        result.failureOrNull,
+        isA<AuthFailure>().having(
+          (failure) => failure.reason,
+          'reason',
+          AuthFailureReason.unknown,
+        ),
+      );
+    });
+
+    test('translates a Firebase rejection into a domain failure', () async {
+      final auth = MockFirebaseAuth(mockUser: mockUser);
+      whenCalling(Invocation.method(#signInWithCredential, null))
+          .on(auth)
+          .thenThrow(
+            FirebaseAuthException(
+              code: 'account-exists-with-different-credential',
+              message: 'Already registered another way.',
+            ),
+          );
+      final google = _StubGoogleSignInService(
+        const Ok(GoogleTokens(idToken: 'id-token')),
+      );
+      final service = FirebaseAuthService(auth, google);
+
+      final result = await service.signInWithGoogle();
+
+      expect(
+        result.failureOrNull,
+        isA<AuthFailure>().having(
+          (failure) => failure.reason,
+          'reason',
+          AuthFailureReason.accountExistsWithDifferentCredential,
+        ),
+      );
+    });
+
+    test('reports itself unavailable when no Google service is wired '
+        'up', () async {
       final service = FirebaseAuthService(MockFirebaseAuth());
 
-      for (final result in [
-        await service.signInWithGoogle(),
-        await service.signInWithApple(),
-      ]) {
-        expect(
-          result.failureOrNull,
-          isA<AuthFailure>().having(
-            (failure) => failure.reason,
-            'reason',
-            AuthFailureReason.providerUnavailable,
-          ),
-        );
-      }
+      expect(
+        (await service.signInWithGoogle()).failureOrNull,
+        isA<AuthFailure>().having(
+          (failure) => failure.reason,
+          'reason',
+          AuthFailureReason.providerUnavailable,
+        ),
+      );
     });
   });
+
+  group('signInWithApple', () {
+    test('reports itself as unavailable until it is wired up', () async {
+      final service = FirebaseAuthService(MockFirebaseAuth());
+
+      expect(
+        (await service.signInWithApple()).failureOrNull,
+        isA<AuthFailure>().having(
+          (failure) => failure.reason,
+          'reason',
+          AuthFailureReason.providerUnavailable,
+        ),
+      );
+    });
+  });
+
+  group('signOut', () {
+    test('also ends the Google session so the picker returns', () async {
+      final google = _StubGoogleSignInService(const Ok(GoogleTokens()));
+      final service = FirebaseAuthService(
+        MockFirebaseAuth(signedIn: true, mockUser: mockUser),
+        google,
+      );
+
+      await service.signOut();
+
+      expect(google.signOutCalls, 1);
+    });
+
+    test('still ends the Firebase session when Google sign-out throws',
+        () async {
+      final auth = MockFirebaseAuth(signedIn: true, mockUser: mockUser);
+      final service = FirebaseAuthService(
+        auth,
+        _StubGoogleSignInService(const Ok(GoogleTokens()), signOutThrows: true),
+      );
+
+      final result = await service.signOut();
+
+      expect(result.isOk, isTrue);
+      expect(auth.currentUser, isNull);
+    });
+  });
+}
+
+/// Stands in for the plugin-backed Google service, which cannot run in a unit
+/// test: it answers with whatever result the case under test needs and counts
+/// the calls it received.
+class _StubGoogleSignInService implements GoogleSignInService {
+  _StubGoogleSignInService(this._result, {this.signOutThrows = false});
+
+  final Result<GoogleTokens> _result;
+  final bool signOutThrows;
+
+  int authenticateCalls = 0;
+  int signOutCalls = 0;
+
+  @override
+  Future<Result<GoogleTokens>> authenticate() async {
+    authenticateCalls++;
+    return _result;
+  }
+
+  @override
+  Future<void> signOut() async {
+    signOutCalls++;
+    if (signOutThrows) throw StateError('Google sign-out failed.');
+  }
 }

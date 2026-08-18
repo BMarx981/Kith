@@ -108,6 +108,11 @@ enum AuthFailureReason {
   /// The user dismissed a federated sign-in sheet. Not an error to report.
   cancelled,
 
+  /// The address already has an account created through a different provider.
+  /// Signing in the original way is the fix, so this is worth saying plainly
+  /// rather than collapsing into [invalidCredentials].
+  accountExistsWithDifferentCredential,
+
   /// The provider rejected the attempt for a reason not listed above.
   unknown,
 }

@@ -285,4 +285,87 @@ void main() {
       expect(h.auth.resetEmailsSent, isEmpty);
     });
   });
+
+  group('SignInController.signInWithGoogle', () {
+    test('signs in and leaves a clean form behind', () async {
+      final h = harness();
+
+      await h.it.signInWithGoogle();
+
+      expect(h.auth.currentUser?.email, 'google@example.com');
+      expect(stateOf(h.container), const SignInState());
+    });
+
+    test('says nothing when the user dismisses the picker', () async {
+      final h = harness();
+      h.auth.nextFailure = const AuthFailure(
+        AuthFailureReason.cancelled,
+        'Sign-in was cancelled.',
+      );
+
+      await h.it.signInWithGoogle();
+
+      final state = stateOf(h.container);
+      expect(state.failure, isNull);
+      expect(state.isSubmitting, isFalse);
+    });
+
+    test('keeps the form on the mode it was cancelled from', () async {
+      final h = harness();
+      h.it.setMode(SignInMode.signUp);
+      h.auth.nextFailure = const AuthFailure(
+        AuthFailureReason.cancelled,
+        'Sign-in was cancelled.',
+      );
+
+      await h.it.signInWithGoogle();
+
+      expect(stateOf(h.container).mode, SignInMode.signUp);
+    });
+
+    test('shows a real refusal', () async {
+      final h = harness();
+      h.auth.nextFailure = const AuthFailure(
+        AuthFailureReason.accountExistsWithDifferentCredential,
+        'Registered another way.',
+      );
+
+      await h.it.signInWithGoogle();
+
+      final state = stateOf(h.container);
+      expect(
+        state.failure?.reason,
+        AuthFailureReason.accountExistsWithDifferentCredential,
+      );
+      expect(state.isSubmitting, isFalse);
+    });
+
+    test('clears a previous failure while the picker is open', () async {
+      final h = harness();
+      h.auth.nextFailure = const AuthFailure(
+        AuthFailureReason.network,
+        'Offline.',
+      );
+      await h.it.signInWithGoogle();
+      expect(stateOf(h.container).failure, isNotNull);
+
+      await h.it.signInWithGoogle();
+
+      expect(stateOf(h.container).failure, isNull);
+    });
+
+    test('is ignored while a submit is in flight', () async {
+      final h = harness();
+      h.auth.seedAccount(email: 'brian@example.com', password: 'hunter22');
+
+      final pending = h.it.submit(
+        email: 'brian@example.com',
+        password: 'hunter22',
+      );
+      await h.it.signInWithGoogle();
+      await pending;
+
+      expect(h.auth.currentUser?.email, 'brian@example.com');
+    });
+  });
 }

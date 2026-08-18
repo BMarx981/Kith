@@ -14,8 +14,8 @@ import 'package:kith/features/auth/presentation/auth_failure_message.dart';
 ///
 /// Signing in or creating an account changes the signed-in identity; the auth
 /// guard notices and takes the user onward, so this screen never navigates.
-/// Google and Apple sign-in are not offered until their providers are wired
-/// up, rather than shown as buttons that always fail.
+/// Apple sign-in is not offered until its provider is wired up, rather than
+/// shown as a button that always fails.
 @RoutePage()
 class SignInScreen extends ConsumerStatefulWidget {
   const SignInScreen({super.key});
@@ -34,6 +34,9 @@ class SignInScreen extends ConsumerStatefulWidget {
 
   /// Identifies the password reset button to tests.
   static const forgotPasswordKey = Key('signIn.forgotPassword');
+
+  /// Identifies the Google sign-in button to tests.
+  static const googleButtonKey = Key('signIn.google');
 
   @override
   ConsumerState<SignInScreen> createState() => _SignInScreenState();
@@ -65,6 +68,9 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
   Future<void> _sendPasswordReset() => ref
       .read(signInControllerProvider.notifier)
       .sendPasswordReset(_emailController.text);
+
+  Future<void> _signInWithGoogle() =>
+      ref.read(signInControllerProvider.notifier).signInWithGoogle();
 
   @override
   Widget build(BuildContext context) {
@@ -194,6 +200,23 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                 onPressed: state.isSubmitting ? null : _sendPasswordReset,
                 child: const Text('Forgot your password?'),
               ),
+            const SizedBox(height: KithSpacing.md),
+            // Google's own asset rather than an icon-font approximation: the
+            // branding guidelines require the mark unaltered, and it is not a
+            // Phosphor glyph to begin with. See assets/brand/google.
+            OutlinedButton.icon(
+              key: SignInScreen.googleButtonKey,
+              onPressed: state.isSubmitting ? null : _signInWithGoogle,
+              icon: const Image(
+                image: AssetImage('assets/brand/google/g-logo.png'),
+                width: 20,
+                height: 20,
+                // The mark carries its own colours and must keep them, so it
+                // does not follow the button's foreground like an icon would.
+                excludeFromSemantics: true,
+              ),
+              label: const Text('Continue with Google'),
+            ),
             const SizedBox(height: KithSpacing.xs),
             TextButton(
               key: SignInScreen.modeToggleKey,

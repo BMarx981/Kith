@@ -35,6 +35,7 @@ import '../helpers/fake_household_repository.dart';
 import '../helpers/fake_planned_hangout_repository.dart';
 import '../helpers/fake_relationship_type_repository.dart';
 import '../helpers/load_fonts.dart';
+import '../helpers/precache_images.dart';
 import '../helpers/pump_app.dart';
 
 /// Pins the design language on the surfaces that exist today.
@@ -204,6 +205,7 @@ void main() {
     } else {
       await tester.pump(const Duration(milliseconds: 250));
     }
+    await precacheImages(tester);
   }
 
   /// Runs [body] against both themes, naming each golden after the brightness.

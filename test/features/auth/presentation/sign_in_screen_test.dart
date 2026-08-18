@@ -111,10 +111,9 @@ void main() {
       expect(find.widgetWithText(FilledButton, 'Sign in'), findsOneWidget);
     });
 
-    testWidgets('offers no federated buttons until they work', (tester) async {
+    testWidgets('offers no Apple button until it works', (tester) async {
       await pumpScreen(tester);
 
-      expect(find.textContaining('Google'), findsNothing);
       expect(find.textContaining('Apple'), findsNothing);
     });
 
@@ -329,6 +328,88 @@ void main() {
         ),
       );
       expect(field.obscureText, isFalse);
+    });
+  });
+
+  group('Google sign-in', () {
+    testWidgets('offers a Google button', (tester) async {
+      await pumpScreen(tester);
+
+      expect(find.byKey(SignInScreen.googleButtonKey), findsOneWidget);
+      expect(find.text('Continue with Google'), findsOneWidget);
+    });
+
+    testWidgets('signs in through Google when tapped', (tester) async {
+      await pumpScreen(tester);
+
+      await tester.tap(find.byKey(SignInScreen.googleButtonKey));
+      await tester.pumpAndSettle();
+
+      expect(auth.currentUser?.email, 'google@example.com');
+    });
+
+    testWidgets('shows nothing when the picker is dismissed', (tester) async {
+      await pumpScreen(tester);
+      auth.nextFailure = const AuthFailure(
+        AuthFailureReason.cancelled,
+        'Sign-in was cancelled.',
+      );
+
+      await tester.tap(find.byKey(SignInScreen.googleButtonKey));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Sign-in was cancelled.'), findsNothing);
+      expect(auth.currentUser, isNull);
+    });
+
+    testWidgets('reports a refusal that is not a cancellation', (tester) async {
+      await pumpScreen(tester);
+      auth.nextFailure = const AuthFailure(
+        AuthFailureReason.accountExistsWithDifferentCredential,
+        'Registered another way.',
+      );
+
+      await tester.tap(find.byKey(SignInScreen.googleButtonKey));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(
+          'That address already has an account. '
+          'Sign in the way you did before.',
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('is disabled while an email sign-in is in flight', (
+      tester,
+    ) async {
+      final gated = _GatedAuthService();
+      addTearDown(gated.dispose);
+      gated.seedAccount(email: 'brian@example.com', password: 'hunter22');
+      await tester.pumpApp(
+        const SignInScreen(),
+        overrides: [authServiceProvider.overrideWithValue(gated)],
+      );
+
+      await tester.enterText(
+        find.byKey(SignInScreen.emailFieldKey),
+        'brian@example.com',
+      );
+      await tester.enterText(
+        find.byKey(SignInScreen.passwordFieldKey),
+        'hunter22',
+      );
+      await tester.tap(find.byKey(SignInScreen.submitButtonKey));
+      await tester.pump();
+
+      final button = tester.widget<OutlinedButton>(
+        find.byKey(SignInScreen.googleButtonKey),
+      );
+      expect(button.onPressed, isNull);
+
+      gated.gate.complete();
+      await tester.pumpAndSettle();
     });
   });
 }

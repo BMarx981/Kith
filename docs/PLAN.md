@@ -2,7 +2,7 @@
 
 Working title: **Kith** (rename freely; nothing in the plan depends on it).
 
-A shared household app that tracks friends — yours and your kids' — shows how long it's been since you last saw each person, and suggests who to reconnect with. Flutter + Riverpod + AutoRoute, shared data between partners, editable relationship types, full test coverage, and a Skylight Calendar hookup.
+A shared household app that tracks friends — yours and your kids' — shows how long it's been since you last saw each person, and suggests who to reconnect with. Flutter + Riverpod + AutoRoute, shared data between partners, editable relationship types, full test coverage, and a calendar hookup.
 
 ---
 
@@ -12,7 +12,7 @@ A shared household app that tracks friends — yours and your kids' — shows ho
 1. Household members add contacts (adults and kids' friends).
 2. When you hang out, you log it in ~10 seconds (who, when, optional note).
 3. Every contact carries a **freshness gauge** driven by time-since-last-hangout vs. that contact's target cadence.
-4. The home screen surfaces **suggestions**: who's overdue, ranked, with one-tap "plan it" that creates a calendar event visible on the Skylight.
+4. The home screen surfaces **suggestions**: who's overdue, ranked, with one-tap "plan it" that creates a calendar event.
 
 ### Users
 - Two (or more) adults in one household, both editing the same list.
@@ -172,7 +172,7 @@ lib/
     contacts/          // list, detail, edit, relationship type manager
     hangouts/          // quick-log flow, history
     suggestions/       // engine (pure) + home screen presentation
-    calendar/          // Skylight integration
+    calendar/          // CalendarSink + Google Calendar
   routing/             // AutoRoute definitions + guards
 ```
 
@@ -183,24 +183,32 @@ lib/
 
 ---
 
-## 3. Skylight Calendar integration
+## 3. Calendar integration
 
-Skylight has **no official public API**. Two paths, both planned:
+PlannedHangouts belong on the household's calendar. That is one problem with a
+supported answer, and a second, harder problem sitting behind it.
 
-### Path A (MVP, reliable): shared calendar bridge
-The app writes PlannedHangouts to a calendar source that Skylight already knows how to ingest:
-1. Household links a dedicated Google Calendar (e.g., "Hangouts") via Google Calendar API (OAuth per household).
-2. Skylight is pointed at that calendar once, in the Skylight app, as a synced source.
-3. Confirming a suggestion → creates/updates/deletes an event on that calendar → appears on the Skylight frame automatically.
+### The supported path: a shared Google Calendar
 
-This is stable, officially supported on both ends, and also makes the events visible in everyone's normal calendar apps for free.
+The app writes PlannedHangouts to a dedicated Google Calendar ("Hangouts") that
+the household links once via OAuth. Confirm a plan and an event is created;
+edit or cancel it and the event follows. Both ends are officially supported,
+and the events show up in everyone's ordinary calendar app for free.
 
-### Path B (stretch, feature-flagged): direct unofficial API
-A community-maintained, reverse-engineered OpenAPI spec for the Skylight API exists (github.com/TheEagleByte/skylight-api), with email/password auth yielding a Basic token and endpoints for calendar events, chores, and lists per frame. This allows writing events directly to the frame without a Google account in the middle — but it's unofficial and can break without notice.
+Everything the app writes goes through a `CalendarSink` interface, so a second
+implementation later is additive rather than a rewrite.
 
-Plan: define a `CalendarSink` interface; ship `GoogleCalendarSink` in MVP; add `SkylightDirectSink` behind a settings toggle in a later milestone, clearly labeled experimental.
+### Downstream: the Skylight frame
 
----
+A Skylight frame can subscribe to a Google Calendar as a synced source, so once
+the calendar above exists, pointing the frame at it is a one-time setup step in
+the Skylight app rather than anything Kith builds. Writing to a frame *directly*
+is a different problem: there is no official API, only a community
+reverse-engineered one, with email/password auth and endpoints that can change
+without notice.
+
+That work, and the frame-side setup guide that goes with it, has its own plan:
+**`docs/SKYLIGHT.md`**. Nothing in the milestones below depends on it.
 
 ## 4. Testing strategy
 
@@ -231,11 +239,23 @@ Gated — each milestone ends with the analyzer clean, tests green, and a go/no-
 - **Gate:** `flutter analyze` clean and the full suite green on an empty-ish app.
 
 ### M1 — Auth & household
-- Email + Google/Apple sign-in
+- Email and Google sign-in
 - Create household / join via invite code / member list
 - Route guards (auth, household membership)
 - Firestore security rules + emulator rule tests
 - **Gate:** two accounts can join one household on two devices.
+
+Apple sign-in is not built. It was listed here originally and never shipped;
+the screen offers no Apple button rather than one that always fails, and
+`FirebaseAuthService.signInWithApple` answers `providerUnavailable`. It is
+required to ship an iOS app that offers any other federated sign-in, so it is
+a release blocker rather than a milestone gap, and it lands before the App
+Store does.
+
+Google sign-in went in ahead of M5 (2026-08-18) rather than with M1's other
+work: Google Calendar authorisation runs through the same account and the same
+plugin, and building the OAuth path twice to keep the milestone boundary tidy
+would have cost more than it saved.
 
 ### M2 — Contacts & relationship types
 - Contact CRUD with all fields incl. parent/guardian contact
@@ -266,15 +286,21 @@ an arrangement. `PlannedHangout.calendarEventId` ships unwritten in M4 — the
 field is part of the entity, and adding it in M5 would mean migrating documents
 and rules for a value the model already round-trips.
 
-### M5 — Calendar (Skylight via Google Calendar)
+### M5 — Google Calendar
+- `CalendarSink` interface + `GoogleCalendarSink`
 - Google Calendar OAuth per household, calendar picker/creator
 - PlannedHangout confirm → event create; edit/cancel sync both ways (webhook-less: poll on app open + on confirm)
-- Setup guide screen: "point your Skylight at this calendar"
-- **Gate:** confirmed hangout appears on the physical Skylight frame.
+- **Gate:** confirming a plan puts a matching event on the linked Google Calendar as seen from a second client, and cancelling the plan removes it.
+
+The gate deliberately stops at Google Calendar. Whether a frame has picked up a
+subscribed calendar is Skylight's behaviour on Skylight's schedule, so gating
+the milestone there would make a green build wait on hardware and on a
+third-party refresh interval, for a write the tests can already prove correct.
+Once the event is right in Google Calendar, the frame is a setup step, not a
+feature.
 
 ### M6 — Polish & stretch (optional)
 - Weekly digest local notification
-- SkylightDirectSink (unofficial API, experimental toggle)
 - Contact import from device contacts
 - Birthday tracking on contacts
 
@@ -284,7 +310,7 @@ and rules for a value the model already round-trips.
 
 | Risk | Mitigation |
 |---|---|
-| Skylight unofficial API breaks | It's a stretch item behind a flag; Path A is the supported route |
+| Skylight has no official API | No milestone depends on one: the frame subscribes to the Google Calendar M5 writes. Direct-to-frame work is scoped separately in `docs/SKYLIGHT.md` |
 | Google Calendar OAuth verification friction (restricted scopes) | Use `calendar.events` scope on a dedicated calendar only; personal-use app can stay in testing mode |
 | 100% coverage slows iteration | Pure-function-heavy design keeps it tractable; hand-written models are boilerplate-tested via shared round-trip helpers |
 | Hand-written model boilerplate drifts (copyWith missing a field, asymmetric toMap/fromMap) | Mandatory round-trip + copyWith-every-field tests per model; a shared test helper makes adding them cheap |
@@ -298,5 +324,5 @@ and rules for a value the model already round-trips.
 1. ~~**Backend**~~: **Decided** — Firestore, as assumed throughout the plan.
 2. ~~**Platforms**~~: **Decided** — iOS + Android only. Web and desktop scaffolding removed in M0.
 3. **Name**: "Kith" is a placeholder.
-4. **Google account**: does the household already run a Google Calendar the Skylight syncs from? If yes, M5 gets simpler (reuse it rather than OAuth-creating a new one).
+4. ~~**Google account**~~: **Decided** (2026-08-18) — the household already runs a Google Calendar the frame syncs from, so M5 links an existing calendar rather than creating one. The picker lists the account's calendars; there is no create flow.
 5. **Kids' visibility**: v1 assumes kids don't use the app. Ever want a read-only kid view?

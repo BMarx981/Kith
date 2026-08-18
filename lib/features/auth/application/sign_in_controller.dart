@@ -60,6 +60,32 @@ class SignInController extends Notifier<SignInState> {
     };
   }
 
+  /// Signs in through Google.
+  ///
+  /// Dismissing the account picker leaves the form exactly as it was: the user
+  /// closed the sheet deliberately, and an error telling them they cancelled
+  /// only reports back what they just did.
+  Future<void> signInWithGoogle() async {
+    if (state.isSubmitting) return;
+    state = state.copyWith(
+      isSubmitting: true,
+      clearFailure: true,
+      clearPasswordResetSentTo: true,
+    );
+
+    final result = await ref.read(authServiceProvider).signInWithGoogle();
+    state = switch (result) {
+      Ok() => const SignInState(),
+      Err(:final failure) when _wasCancelled(failure) => state.copyWith(
+        isSubmitting: false,
+      ),
+      Err(:final failure) => state.copyWith(
+        isSubmitting: false,
+        failure: _asAuthFailure(failure),
+      ),
+    };
+  }
+
   /// Sends a password reset link to [email].
   ///
   /// The address is validated here because the reset button does not run the
@@ -90,6 +116,9 @@ class SignInController extends Notifier<SignInState> {
           state.copyWith(isSubmitting: false, failure: _asAuthFailure(failure)),
     );
   }
+
+  static bool _wasCancelled(Failure failure) =>
+      failure is AuthFailure && failure.reason == AuthFailureReason.cancelled;
 
   /// Widens any [Failure] to the [AuthFailure] the screen knows how to render.
   ///

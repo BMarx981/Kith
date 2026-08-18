@@ -1,0 +1,19 @@
+Google "G" logo
+===============
+
+Source:  https://developers.google.com/static/identity/images/g-logo.png
+         (downloaded 2026-08-18, original 200x204 RGBA)
+
+Bundled as 1x/2x/3x density buckets, each the mark fitted inside a square
+canvas with transparent padding, which is how Google's own button spec places
+it. The mark itself is unmodified apart from scaling.
+
+This is a Google trademark, not open-licensed content. It is bundled solely to
+label the "Continue with Google" button, which is the use Google's Sign in with
+Google branding guidelines require:
+
+  https://developers.google.com/identity/branding-guidelines
+
+Under those guidelines the mark must not be recoloured, redrawn, rotated, or
+otherwise altered, and must not be used to suggest Google endorses Kith. Do not
+reuse it anywhere else in the app.

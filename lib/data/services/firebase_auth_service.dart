@@ -3,6 +3,7 @@ import 'package:kith/core/result/failure.dart';
 import 'package:kith/core/result/result.dart';
 import 'package:kith/data/models/auth_user.dart';
 import 'package:kith/data/services/auth_service.dart';
+import 'package:kith/data/services/google_sign_in_service.dart';
 
 /// [AuthService] backed by Firebase Auth.
 ///
@@ -10,9 +11,14 @@ import 'package:kith/data/services/auth_service.dart';
 /// `FirebaseAuthException` is translated into a domain [Failure] before it
 /// leaves.
 class FirebaseAuthService implements AuthService {
-  const FirebaseAuthService(this._auth);
+  const FirebaseAuthService(this._auth, [this._google]);
 
   final FirebaseAuth _auth;
+
+  /// Null in a build with no Google client configured, which is why
+  /// [signInWithGoogle] can still answer `providerUnavailable` rather than
+  /// crashing at the platform channel.
+  final GoogleSignInService? _google;
 
   @override
   AuthUser? get currentUser => _mapUser(_auth.currentUser);
@@ -52,7 +58,26 @@ class FirebaseAuthService implements AuthService {
   });
 
   @override
-  Future<Result<AuthUser>> signInWithGoogle() async => _notWiredUp('Google');
+  Future<Result<AuthUser>> signInWithGoogle() async {
+    final google = _google;
+    if (google == null) return _notWiredUp('Google');
+
+    final tokens = await google.authenticate();
+    return switch (tokens) {
+      Err(:final failure) => Err(failure),
+      Ok(value: final grant) when grant.isEmpty => _noGoogleToken,
+      Ok(value: final grant) => _guard(() async {
+        final credential = await _auth.signInWithCredential(
+          GoogleAuthProvider.credential(
+            idToken: grant.idToken,
+            accessToken: grant.accessToken,
+          ),
+        );
+        final user = credential.user;
+        return user == null ? _noUser : Ok(_mapSignedInUser(user));
+      }),
+    };
+  }
 
   @override
   Future<Result<AuthUser>> signInWithApple() async => _notWiredUp('Apple');
@@ -71,6 +96,14 @@ class FirebaseAuthService implements AuthService {
 
   @override
   Future<Result<void>> signOut() => _guard(() async {
+    // Google first, and best-effort: leaving its session standing would hand
+    // the next sign-in the same account without asking, but a federated
+    // sign-out that fails must not strand somebody signed into Firebase.
+    try {
+      await _google?.signOut();
+    } on Object {
+      // Nothing to tell the user: the session that matters ends below.
+    }
     await _auth.signOut();
     return const Ok(null);
   });
@@ -80,6 +113,15 @@ class FirebaseAuthService implements AuthService {
   /// cannot crash a sign-in screen.
   static const _noUser = Err<AuthUser>(
     UnknownFailure('Sign-in succeeded but returned no account.'),
+  );
+
+  /// Google reported success but handed back neither token, so there is
+  /// nothing to build a Firebase credential from.
+  static const _noGoogleToken = Err<AuthUser>(
+    AuthFailure(
+      AuthFailureReason.unknown,
+      'Google sign-in returned no usable token.',
+    ),
   );
 
   static Result<AuthUser> _notWiredUp(String provider) => Err(
@@ -146,6 +188,12 @@ class FirebaseAuthService implements AuthService {
       'weak-password' => AuthFailure(AuthFailureReason.weakPassword, message),
       'invalid-email' => AuthFailure(AuthFailureReason.invalidEmail, message),
       'user-disabled' => AuthFailure(AuthFailureReason.userDisabled, message),
+      // Federated only: the address is already registered through another
+      // provider, and the fix is to sign in the original way.
+      'account-exists-with-different-credential' => AuthFailure(
+        AuthFailureReason.accountExistsWithDifferentCredential,
+        message,
+      ),
       'too-many-requests' => AuthFailure(
         AuthFailureReason.tooManyRequests,
         message,

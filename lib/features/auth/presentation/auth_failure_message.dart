@@ -21,5 +21,7 @@ String authFailureMessage(AuthFailure failure) => switch (failure.reason) {
   AuthFailureReason.providerUnavailable =>
     'That way of signing in is not available yet.',
   AuthFailureReason.cancelled => 'Sign-in was cancelled.',
+  AuthFailureReason.accountExistsWithDifferentCredential =>
+    'That address already has an account. Sign in the way you did before.',
   AuthFailureReason.unknown => 'Something went wrong. Try again.',
 };

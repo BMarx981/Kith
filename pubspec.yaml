@@ -53,6 +53,11 @@ dependencies:
   # riverpod exactly. Bumping this to 3.4.x drops riverpod_lint entirely.
   flutter_riverpod: ^3.3.2
 
+  # Federated sign-in. 7.x splits authentication (an id token, for Firebase)
+  # from authorization (access tokens for scopes), which is what lets M5 ask
+  # for the calendar scope without a second sign-in.
+  google_sign_in: ^7.2.0
+
 dev_dependencies:
   auto_route_generator: ^10.6.0
   build_runner: ^2.15.1
@@ -66,6 +71,11 @@ dev_dependencies:
 
   flutter_test:
     sdk: flutter
+
+  # Test-only, and already resolved transitively through google_sign_in: the
+  # plugin's own types are needed to stand in for the native side, which has
+  # no implementation under `flutter test`.
+  google_sign_in_platform_interface: ^3.1.0
 
   mock_exceptions: ^0.8.2
   mocktail: ^1.0.5
@@ -89,6 +99,12 @@ flutter:
   # Inter are SIL OFL 1.1 and Phosphor is MIT; all three require the licence to
   # travel with the software, so each ships alongside its font.
   assets:
+    # The Google mark for the sign-in button. Flutter picks the 2.0x/3.0x
+    # variants beside this path on its own. BRANDING.txt travels with it: it
+    # is a trademark used under Google's branding guidelines, not licensed
+    # content, and the file records what may and may not be done with it.
+    - assets/brand/google/g-logo.png
+    - assets/brand/google/BRANDING.txt
     - assets/fonts/fraunces/OFL.txt
     - assets/fonts/inter/OFL.txt
     - assets/fonts/phosphor/LICENSE
