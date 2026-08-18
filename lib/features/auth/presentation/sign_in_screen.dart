@@ -165,12 +165,16 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                           color: theme.colorScheme.error,
                         ),
                       ),
-                      // Debug builds only, and only when the copy above has
-                      // nothing specific to say: an unrecognised code is
-                      // otherwise captured and thrown away, leaving nothing to
-                      // work out what the backend actually objected to.
+                      // Debug builds only, and only for the reasons whose
+                      // copy cannot name the actual problem: an unrecognised
+                      // code, or a configuration error whose detail decides
+                      // which switch in the console is the wrong one. The text
+                      // is otherwise captured and thrown away.
                       if (kDebugMode &&
-                          failure.reason == AuthFailureReason.unknown) ...[
+                          const {
+                            AuthFailureReason.unknown,
+                            AuthFailureReason.providerUnavailable,
+                          }.contains(failure.reason)) ...[
                         const SizedBox(height: 4),
                         Text(
                           failure.message,

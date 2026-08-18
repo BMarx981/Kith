@@ -155,6 +155,54 @@ void main() {
       }
     });
 
+    test(
+      'recognises a configuration error the iOS SDK hid in the message',
+      () async {
+        // The iOS SDK reports a project with no Authentication product as a
+        // generic internal error; the backend's actual complaint survives only
+        // in the message body. Left unread it says "something went wrong" for a
+        // setup problem with a one-click fix.
+        final auth = MockFirebaseAuth(mockUser: mockUser);
+        throwCode(
+          auth,
+          'internal-error',
+          message:
+              'An internal error has occurred. [ Error '
+              'Domain=FIRAuthErrorDomain Code=17999 ... '
+              'CONFIGURATION_NOT_FOUND ]',
+        );
+
+        final result = await FirebaseAuthService(auth).signInWithEmail(
+          email: 'brian@example.com',
+          password: 'hunter22',
+        );
+
+        expect(
+          result.failureOrNull,
+          isA<AuthFailure>().having(
+            (failure) => failure.reason,
+            'reason',
+            AuthFailureReason.providerUnavailable,
+          ),
+        );
+      },
+    );
+
+    test('leaves an internal error that says nothing more unknown', () async {
+      final auth = MockFirebaseAuth(mockUser: mockUser);
+      throwCode(auth, 'internal-error', message: 'boom');
+
+      final result = await FirebaseAuthService(auth).signInWithEmail(
+        email: 'brian@example.com',
+        password: 'hunter22',
+      );
+
+      expect(
+        result.failureOrNull,
+        const AuthFailure(AuthFailureReason.unknown, 'boom'),
+      );
+    });
+
     test('wraps a non-auth Firebase error as an unknown failure', () async {
       final auth = MockFirebaseAuth(mockUser: mockUser);
       whenCalling(Invocation.method(#signInWithEmailAndPassword, null))

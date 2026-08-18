@@ -115,8 +115,20 @@ class FirebaseAuthService implements AuthService {
     }
   }
 
+  /// What the backend calls a project whose Authentication product was never
+  /// provisioned. The Android SDK surfaces it as a code; the iOS one buries it
+  /// in the message of a generic `internal-error`.
+  static const _noAuthProduct = 'CONFIGURATION_NOT_FOUND';
+
   static Failure _failureFor(FirebaseAuthException error) {
     final message = error.message ?? error.code;
+    // Read out of the message because on iOS there is nowhere else to read it
+    // from. Matching on message text is brittle, and worth it here: the
+    // alternative is "something went wrong" for a setup problem whose fix is
+    // one switch in the Firebase console.
+    if (message.contains(_noAuthProduct)) {
+      return AuthFailure(AuthFailureReason.providerUnavailable, message);
+    }
     return switch (error.code) {
       // Firebase collapses wrong-password and unknown-account into
       // invalid-credential when email enumeration protection is on; the older
