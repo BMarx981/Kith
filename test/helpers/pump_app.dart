@@ -17,7 +17,11 @@ extension PumpApp on WidgetTester {
     return pumpWidget(
       ProviderScope(
         overrides: overrides,
-        child: MaterialApp(theme: theme ?? KithTheme.light, home: widget),
+        child: MaterialApp(
+          debugShowCheckedModeBanner: false,
+          theme: theme ?? KithTheme.light,
+          home: widget,
+        ),
       ),
     );
   }

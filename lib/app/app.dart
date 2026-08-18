@@ -13,6 +13,7 @@ class KithApp extends ConsumerWidget {
     final router = ref.watch(appRouterProvider);
     return MaterialApp.router(
       title: 'Kith',
+      debugShowCheckedModeBanner: false,
       theme: KithTheme.light,
       darkTheme: KithTheme.dark,
       routerConfig: router.config(

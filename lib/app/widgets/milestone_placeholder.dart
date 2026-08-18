@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:kith/app/theme.dart';
 
 /// Stands in for a screen whose feature has not been built yet.
 ///
@@ -36,9 +37,9 @@ class MilestonePlaceholder extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, size: 48, color: theme.colorScheme.outline),
-            const SizedBox(height: 12),
+            const SizedBox(height: KithSpacing.sm),
             Text(title, style: theme.textTheme.titleMedium),
-            const SizedBox(height: 4),
+            const SizedBox(height: KithSpacing.xxs),
             Text(
               'Arrives in $milestone',
               style: theme.textTheme.bodySmall?.copyWith(

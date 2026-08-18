@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:kith/app/theme.dart';
 
 /// Fills the beat before the first route can be rendered.
 ///
@@ -17,8 +18,13 @@ class AppSplash extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Kith', style: theme.textTheme.headlineMedium),
-            const SizedBox(height: 24),
+            Text(
+              'Kith',
+              style: theme.textTheme.headlineMedium?.copyWith(
+                color: theme.colorScheme.primary,
+              ),
+            ),
+            const SizedBox(height: KithSpacing.lg),
             const CircularProgressIndicator(),
           ],
         ),

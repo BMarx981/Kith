@@ -1,6 +1,8 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:kith/app/theme.dart';
+import 'package:kith/app/widgets/centered_form_shell.dart';
 import 'package:kith/core/result/failure.dart';
 import 'package:kith/features/auth/application/auth_providers.dart';
 import 'package:kith/features/household/application/household_onboarding_controller.dart';
@@ -88,24 +90,14 @@ class _HouseholdOnboardingScreenState
     final state = ref.watch(householdOnboardingControllerProvider);
     final membership = ref.watch(householdIdsProvider);
 
-    return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: membership.hasError
-                  ? _Unreadable(
-                      error: membership.error!,
-                      onRetry: () => ref.invalidate(householdIdsProvider),
-                      onSignOut: () => ref.read(authServiceProvider).signOut(),
-                    )
-                  : _form(context, state),
-            ),
-          ),
-        ),
-      ),
+    return CenteredFormShell(
+      child: membership.hasError
+          ? _Unreadable(
+              error: membership.error!,
+              onRetry: () => ref.invalidate(householdIdsProvider),
+              onSignOut: () => ref.read(authServiceProvider).signOut(),
+            )
+          : _form(context, state),
     );
   }
 
@@ -124,7 +116,7 @@ class _HouseholdOnboardingScreenState
             textAlign: TextAlign.center,
             style: theme.textTheme.headlineMedium,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: KithSpacing.xs),
           Text(
             isJoining
                 ? 'Enter the invite code from whoever set yours up.'
@@ -134,7 +126,7 @@ class _HouseholdOnboardingScreenState
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: KithSpacing.xl),
           if (isJoining)
             TextFormField(
               key: HouseholdOnboardingScreen.codeFieldKey,
@@ -146,7 +138,6 @@ class _HouseholdOnboardingScreenState
               decoration: const InputDecoration(
                 labelText: 'Invite code',
                 hintText: 'KH7-RQ2',
-                border: OutlineInputBorder(),
               ),
               validator: HouseholdFieldValidator.inviteCode,
             )
@@ -160,11 +151,10 @@ class _HouseholdOnboardingScreenState
               decoration: const InputDecoration(
                 labelText: 'Household name',
                 hintText: 'The Marx house',
-                border: OutlineInputBorder(),
               ),
               validator: HouseholdFieldValidator.name,
             ),
-          const SizedBox(height: 16),
+          const SizedBox(height: KithSpacing.md),
           TextFormField(
             key: HouseholdOnboardingScreen.displayNameFieldKey,
             controller: _displayNameController,
@@ -175,13 +165,12 @@ class _HouseholdOnboardingScreenState
             decoration: const InputDecoration(
               labelText: 'Your name',
               helperText: 'What the rest of the household will see.',
-              border: OutlineInputBorder(),
             ),
             validator: HouseholdFieldValidator.displayName,
             onFieldSubmitted: (_) => _submit(),
           ),
           if (state.failure case final failure?) ...[
-            const SizedBox(height: 16),
+            const SizedBox(height: KithSpacing.md),
             Text(
               householdFailureMessage(failure),
               textAlign: TextAlign.center,
@@ -190,18 +179,18 @@ class _HouseholdOnboardingScreenState
               ),
             ),
           ],
-          const SizedBox(height: 24),
+          const SizedBox(height: KithSpacing.lg),
           FilledButton(
             key: HouseholdOnboardingScreen.submitButtonKey,
             onPressed: state.isSubmitting ? null : _submit,
             child: state.isSubmitting
                 ? const SizedBox.square(
                     dimension: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                    child: CircularProgressIndicator(),
                   )
                 : Text(isJoining ? 'Join' : 'Create household'),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: KithSpacing.xs),
           TextButton(
             key: HouseholdOnboardingScreen.modeToggleKey,
             onPressed: state.isSubmitting
@@ -261,7 +250,7 @@ class _Unreadable extends StatelessWidget {
           textAlign: TextAlign.center,
           style: theme.textTheme.headlineSmall,
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: KithSpacing.sm),
         Text(
           switch (error) {
             final Failure failure => householdFailureMessage(failure),
@@ -272,13 +261,13 @@ class _Unreadable extends StatelessWidget {
             color: theme.colorScheme.error,
           ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: KithSpacing.lg),
         FilledButton(
           key: HouseholdOnboardingScreen.retryKey,
           onPressed: onRetry,
           child: const Text('Try again'),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: KithSpacing.xs),
         TextButton(
           key: HouseholdOnboardingScreen.signOutKey,
           onPressed: onSignOut,

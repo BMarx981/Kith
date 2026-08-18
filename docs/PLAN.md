@@ -68,6 +68,10 @@ Output: top-N suggestions with a human reason string ("It's been 6 weeks — you
 
 ## 2. Architecture
 
+The visual layer has its own spec: **`docs/DESIGN.md`** covers the palette,
+type scale, spacing tokens and component treatments, and is the source of
+truth for anything a screen renders.
+
 ### Stack
 - **Flutter** (stable channel), Dart 3.x
 - **Riverpod** classic providers (`NotifierProvider`, `AsyncNotifierProvider`, `StreamProvider`) — no codegen; `riverpod_lint` enabled
@@ -102,7 +106,8 @@ inviteCodes/{code}         // { householdId, createdBy, createdAt }
 
 ```
 lib/
-  app/                 // MaterialApp, router config, theme
+  app/                 // MaterialApp, router config, shared widgets
+    theme/             // palette, type scale, spacing, component themes
   core/                // clock, result types, extensions, constants
   data/
     models/            // hand-written immutable entities
@@ -153,7 +158,7 @@ The intent behind the original 100% target still stands where it earns its keep:
 Layers:
 1. **Unit tests** — models (serialization round-trips, `copyWith`, equality — these are hand-written now, so they carry real test weight), freshness math, suggestion engine (table-driven, fixed clock), repositories against `fake_cloud_firestore`, auth service against `firebase_auth_mocks`, invite-code logic, CalendarSink implementations against mocked HTTP (`mocktail` + `http` test client).
 2. **Widget tests** — every screen and reusable widget; providers overridden with fakes via `ProviderScope(overrides:)`. Router tested with AutoRoute's testing utilities (guard redirects: unauthenticated → login, no household → onboarding).
-3. **Golden tests** — freshness gauge widget in each state (fresh/due/overdue/never), light + dark.
+3. **Golden tests** — every rendered surface in light + dark (`test/goldens/`), and the freshness gauge widget in each state (fresh/due/overdue/never). Fonts are loaded from the bundle first, so goldens exercise the real type scale. Authored on macOS; another platform would need its own set.
 4. **Firestore security rules tests** — Firebase emulator suite: member can read household, non-member cannot, etc.
 5. **Integration tests** — `integration_test/` happy paths: sign up → create household → add contact → log hangout → see gauge change → confirm suggestion. Run locally against the emulators.
 

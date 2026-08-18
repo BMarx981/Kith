@@ -2,6 +2,7 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:kith/app/theme.dart';
 import 'package:kith/core/result/failure.dart';
 import 'package:kith/data/models/household.dart';
 import 'package:kith/data/models/member.dart';
@@ -60,7 +61,7 @@ class _HouseholdBody extends ConsumerWidget {
     final members = ref.watch(householdMembersProvider(householdId));
 
     return ListView(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: KithSpacing.xs),
       children: [
         switch (household) {
           AsyncData(value: final value?) => _InviteCard(household: value),
@@ -68,7 +69,7 @@ class _HouseholdBody extends ConsumerWidget {
           AsyncError(:final error) => _Message(_messageFor(error)),
           _ => const _Loading(),
         },
-        const Divider(height: 32),
+        const Divider(height: KithSpacing.xl),
         switch (members) {
           AsyncData(:final value) => _MemberList(members: value),
           AsyncError(:final error) => _Message(_messageFor(error)),
@@ -105,12 +106,12 @@ class _InviteCard extends StatelessWidget {
     final code = household.inviteCode;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: KithSpacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(household.name, style: theme.textTheme.headlineSmall),
-          const SizedBox(height: 16),
+          const SizedBox(height: KithSpacing.md),
           if (code == null)
             Text(
               'This household has no invite code right now.',
@@ -120,7 +121,6 @@ class _InviteCard extends StatelessWidget {
             )
           else
             Card(
-              margin: EdgeInsets.zero,
               child: ListTile(
                 title: Text(
                   code.formatted,
@@ -157,7 +157,7 @@ class _MemberList extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.symmetric(horizontal: KithSpacing.md),
           child: Text(
             members.length == 1 ? '1 member' : '${members.length} members',
             style: theme.textTheme.titleSmall?.copyWith(
@@ -165,10 +165,12 @@ class _MemberList extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: KithSpacing.xs),
         for (final member in members)
           ListTile(
             leading: CircleAvatar(
+              backgroundColor: theme.colorScheme.surfaceContainerHighest,
+              foregroundColor: theme.colorScheme.onSurfaceVariant,
               child: Text(_initialOf(member.displayName)),
             ),
             title: Text(member.displayName),
@@ -192,7 +194,7 @@ class _Loading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => const Padding(
-    padding: EdgeInsets.symmetric(vertical: 24),
+    padding: EdgeInsets.symmetric(vertical: KithSpacing.lg),
     child: Center(child: CircularProgressIndicator()),
   );
 }
@@ -206,7 +208,10 @@ class _Message extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      padding: const EdgeInsets.symmetric(
+        horizontal: KithSpacing.md,
+        vertical: KithSpacing.lg,
+      ),
       child: Text(
         text,
         textAlign: TextAlign.center,

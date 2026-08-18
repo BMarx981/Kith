@@ -2,6 +2,8 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:kith/app/theme.dart';
+import 'package:kith/app/widgets/centered_form_shell.dart';
 import 'package:kith/core/result/failure.dart';
 import 'package:kith/features/auth/application/sign_in_controller.dart';
 import 'package:kith/features/auth/application/sign_in_state.dart';
@@ -78,155 +80,135 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
       );
     });
 
-    return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      'Kith',
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.headlineMedium,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      isSignUp
-                          ? 'Create an account, then start or join a household.'
-                          : 'Sign in to your household.',
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                    TextFormField(
-                      key: SignInScreen.emailFieldKey,
-                      controller: _emailController,
-                      enabled: !state.isSubmitting,
-                      autocorrect: false,
-                      keyboardType: TextInputType.emailAddress,
-                      textInputAction: TextInputAction.next,
-                      autofillHints: const [AutofillHints.email],
-                      decoration: const InputDecoration(
-                        labelText: 'Email',
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: CredentialValidator.email,
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      key: SignInScreen.passwordFieldKey,
-                      controller: _passwordController,
-                      enabled: !state.isSubmitting,
-                      obscureText: _obscurePassword,
-                      autocorrect: false,
-                      textInputAction: TextInputAction.done,
-                      autofillHints: [
-                        if (isSignUp)
-                          AutofillHints.newPassword
-                        else
-                          AutofillHints.password,
-                      ],
-                      decoration: InputDecoration(
-                        labelText: 'Password',
-                        border: const OutlineInputBorder(),
-                        suffixIcon: IconButton(
-                          onPressed: () => setState(() {
-                            _obscurePassword = !_obscurePassword;
-                          }),
-                          icon: Icon(
-                            _obscurePassword
-                                ? Icons.visibility_outlined
-                                : Icons.visibility_off_outlined,
-                          ),
-                          tooltip: _obscurePassword
-                              ? 'Show password'
-                              : 'Hide password',
-                        ),
-                      ),
-                      validator: isSignUp
-                          ? CredentialValidator.newPassword
-                          : CredentialValidator.password,
-                      onFieldSubmitted: (_) => _submit(),
-                    ),
-                    if (state.failure case final failure?) ...[
-                      const SizedBox(height: 16),
-                      Text(
-                        authFailureMessage(failure),
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.error,
-                        ),
-                      ),
-                      // Debug builds only, and only for the reasons whose
-                      // copy cannot name the actual problem: an unrecognised
-                      // code, or a configuration error whose detail decides
-                      // which switch in the console is the wrong one. The text
-                      // is otherwise captured and thrown away.
-                      if (kDebugMode &&
-                          const {
-                            AuthFailureReason.unknown,
-                            AuthFailureReason.providerUnavailable,
-                          }.contains(failure.reason)) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          failure.message,
-                          textAlign: TextAlign.center,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ],
-                    const SizedBox(height: 24),
-                    FilledButton(
-                      key: SignInScreen.submitButtonKey,
-                      onPressed: state.isSubmitting ? null : _submit,
-                      child: state.isSubmitting
-                          ? const SizedBox.square(
-                              dimension: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : Text(isSignUp ? 'Create account' : 'Sign in'),
-                    ),
-                    if (!isSignUp)
-                      TextButton(
-                        key: SignInScreen.forgotPasswordKey,
-                        onPressed: state.isSubmitting
-                            ? null
-                            : _sendPasswordReset,
-                        child: const Text('Forgot your password?'),
-                      ),
-                    const SizedBox(height: 8),
-                    TextButton(
-                      key: SignInScreen.modeToggleKey,
-                      onPressed: state.isSubmitting
-                          ? null
-                          : () => ref
-                                .read(signInControllerProvider.notifier)
-                                .setMode(
-                                  isSignUp
-                                      ? SignInMode.signIn
-                                      : SignInMode.signUp,
-                                ),
-                      child: Text(
-                        isSignUp
-                            ? 'I already have an account'
-                            : 'Create an account',
-                      ),
-                    ),
-                  ],
-                ),
+    return CenteredFormShell(
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Kith',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.headlineMedium?.copyWith(
+                color: theme.colorScheme.primary,
               ),
             ),
-          ),
+            const SizedBox(height: KithSpacing.xs),
+            Text(
+              isSignUp
+                  ? 'Create an account, then start or join a household.'
+                  : 'Sign in to your household.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: KithSpacing.xl),
+            TextFormField(
+              key: SignInScreen.emailFieldKey,
+              controller: _emailController,
+              enabled: !state.isSubmitting,
+              autocorrect: false,
+              keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.next,
+              autofillHints: const [AutofillHints.email],
+              decoration: const InputDecoration(labelText: 'Email'),
+              validator: CredentialValidator.email,
+            ),
+            const SizedBox(height: KithSpacing.md),
+            TextFormField(
+              key: SignInScreen.passwordFieldKey,
+              controller: _passwordController,
+              enabled: !state.isSubmitting,
+              obscureText: _obscurePassword,
+              autocorrect: false,
+              textInputAction: TextInputAction.done,
+              autofillHints: [
+                if (isSignUp)
+                  AutofillHints.newPassword
+                else
+                  AutofillHints.password,
+              ],
+              decoration: InputDecoration(
+                labelText: 'Password',
+                suffixIcon: IconButton(
+                  onPressed: () => setState(() {
+                    _obscurePassword = !_obscurePassword;
+                  }),
+                  icon: Icon(
+                    _obscurePassword
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined,
+                  ),
+                  tooltip: _obscurePassword ? 'Show password' : 'Hide password',
+                ),
+              ),
+              validator: isSignUp
+                  ? CredentialValidator.newPassword
+                  : CredentialValidator.password,
+              onFieldSubmitted: (_) => _submit(),
+            ),
+            if (state.failure case final failure?) ...[
+              const SizedBox(height: KithSpacing.md),
+              Text(
+                authFailureMessage(failure),
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.error,
+                ),
+              ),
+              // Debug builds only, and only for the reasons whose
+              // copy cannot name the actual problem: an unrecognised
+              // code, or a configuration error whose detail decides
+              // which switch in the console is the wrong one. The text
+              // is otherwise captured and thrown away.
+              if (kDebugMode &&
+                  const {
+                    AuthFailureReason.unknown,
+                    AuthFailureReason.providerUnavailable,
+                  }.contains(failure.reason)) ...[
+                const SizedBox(height: KithSpacing.xxs),
+                Text(
+                  failure.message,
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ],
+            const SizedBox(height: KithSpacing.lg),
+            FilledButton(
+              key: SignInScreen.submitButtonKey,
+              onPressed: state.isSubmitting ? null : _submit,
+              child: state.isSubmitting
+                  ? const SizedBox.square(
+                      dimension: 20,
+                      child: CircularProgressIndicator(),
+                    )
+                  : Text(isSignUp ? 'Create account' : 'Sign in'),
+            ),
+            if (!isSignUp)
+              TextButton(
+                key: SignInScreen.forgotPasswordKey,
+                onPressed: state.isSubmitting ? null : _sendPasswordReset,
+                child: const Text('Forgot your password?'),
+              ),
+            const SizedBox(height: KithSpacing.xs),
+            TextButton(
+              key: SignInScreen.modeToggleKey,
+              onPressed: state.isSubmitting
+                  ? null
+                  : () => ref
+                        .read(signInControllerProvider.notifier)
+                        .setMode(
+                          isSignUp ? SignInMode.signIn : SignInMode.signUp,
+                        ),
+              child: Text(
+                isSignUp ? 'I already have an account' : 'Create an account',
+              ),
+            ),
+          ],
         ),
       ),
     );
