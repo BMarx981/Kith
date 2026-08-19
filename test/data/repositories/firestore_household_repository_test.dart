@@ -443,6 +443,129 @@ void main() {
     });
   });
 
+  group('linkCalendar', () {
+    test('points the household at the chosen calendar', () async {
+      final household = await createHousehold();
+
+      final result = await repository.linkCalendar(
+        householdId: household.id,
+        calendarId: 'kith@group.calendar.google.com',
+        calendarName: 'Hangouts',
+      );
+
+      expect(result.isOk, isTrue);
+      final stored = await repository.watchHousehold(household.id).first;
+      expect(stored?.calendarId, 'kith@group.calendar.google.com');
+      expect(stored?.calendarName, 'Hangouts');
+      expect(stored?.hasCalendar, isTrue);
+    });
+
+    test('leaves the name and the invite code where they were', () async {
+      final household = await createHousehold();
+
+      await repository.linkCalendar(
+        householdId: household.id,
+        calendarId: 'cal-1',
+        calendarName: 'Family',
+      );
+
+      final stored = await repository.watchHousehold(household.id).first;
+      expect(stored?.name, household.name);
+      expect(stored?.inviteCode, household.inviteCode);
+    });
+
+    test('trims what it is given', () async {
+      final household = await createHousehold();
+
+      await repository.linkCalendar(
+        householdId: household.id,
+        calendarId: '  cal-1 ',
+        calendarName: ' Family  ',
+      );
+
+      final stored = await repository.watchHousehold(household.id).first;
+      expect(stored?.calendarId, 'cal-1');
+      expect(stored?.calendarName, 'Family');
+    });
+
+    test('refuses a link the rules would reject, without I/O', () async {
+      final household = await createHousehold();
+
+      final blank = await repository.linkCalendar(
+        householdId: household.id,
+        calendarId: '   ',
+        calendarName: 'Family',
+      );
+      final huge = await repository.linkCalendar(
+        householdId: household.id,
+        calendarId: 'c' * (Household.maxCalendarIdLength + 1),
+        calendarName: 'Family',
+      );
+      final longName = await repository.linkCalendar(
+        householdId: household.id,
+        calendarId: 'cal-1',
+        calendarName: 'n' * (Household.maxCalendarNameLength + 1),
+      );
+
+      expect(blank.failureOrNull, isA<ValidationFailure>());
+      expect(huge.failureOrNull, isA<ValidationFailure>());
+      expect(longName.failureOrNull, isA<ValidationFailure>());
+      final stored = await repository.watchHousehold(household.id).first;
+      expect(stored?.hasCalendar, isFalse);
+    });
+
+    test('maps a refused write onto a domain failure', () async {
+      final household = await createHousehold();
+      whenCalling(Invocation.method(#update, null))
+          .on(
+            firestore
+                .collection(FirestoreHouseholdRepository.householdsPath)
+                .doc(household.id),
+          )
+          .thenThrow(
+            FirebaseException(
+              plugin: 'cloud_firestore',
+              code: 'permission-denied',
+            ),
+          );
+
+      final result = await repository.linkCalendar(
+        householdId: household.id,
+        calendarId: 'cal-1',
+        calendarName: 'Family',
+      );
+
+      expect(result.failureOrNull, isA<PermissionFailure>());
+    });
+  });
+
+  group('unlinkCalendar', () {
+    test('clears both halves of the link', () async {
+      final household = await createHousehold();
+      await repository.linkCalendar(
+        householdId: household.id,
+        calendarId: 'cal-1',
+        calendarName: 'Family',
+      );
+
+      final result = await repository.unlinkCalendar(
+        householdId: household.id,
+      );
+
+      expect(result.isOk, isTrue);
+      final stored = await repository.watchHousehold(household.id).first;
+      expect(stored?.calendarId, isNull);
+      expect(stored?.calendarName, isNull);
+      expect(stored?.hasCalendar, isFalse);
+    });
+
+    test('reports a household that is no longer there', () async {
+      final result = await repository.unlinkCalendar(householdId: 'gone');
+
+      expect(result.failureOrNull, isA<NotFoundFailure>());
+    });
+  });
+
   group('watchHousehold', () {
     test('emits the household and then its changes', () async {
       final household = await createHousehold();

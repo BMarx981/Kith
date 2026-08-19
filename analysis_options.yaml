@@ -21,3 +21,8 @@ linter:
     # Hand-written models declare `toMap`/`fromMap` returning dynamic-valued maps;
     # public_member_api_docs would demand doc comments on every field accessor.
     public_member_api_docs: false
+
+    # Service seams are expressed as interfaces the composition root binds and
+    # tests fake — `CalendarDirectory` has one method today because a directory
+    # answers one question, not because it wants to be a function type.
+    one_member_abstracts: false

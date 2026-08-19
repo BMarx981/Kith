@@ -55,4 +55,28 @@ abstract interface class HouseholdRepository {
   /// added to or removed from one. v1 puts a user in a single household; the
   /// list is what the data can actually hold, and callers pick from it.
   Stream<List<String>> watchHouseholdIdsFor(String uid);
+
+  /// Points [householdId] at the Google Calendar [calendarId], named
+  /// [calendarName].
+  ///
+  /// Any member may link, not just the owner: the calendar the frame reads is
+  /// household property, and either partner setting it up is the point. The
+  /// OAuth grant that made the pick is the linking member's own and is never
+  /// stored, so this writes the choice and nothing else.
+  ///
+  /// Comes back as a `ValidationFailure` without any I/O for an empty or
+  /// over-long id or name.
+  Future<Result<void>> linkCalendar({
+    required String householdId,
+    required String calendarId,
+    required String calendarName,
+  });
+
+  /// Stops writing [householdId]'s plans to a calendar.
+  ///
+  /// Events already on the calendar are left where they are: they are the
+  /// household's now, and silently clearing a shared calendar because somebody
+  /// unlinked would be the app deleting what it does not own. The plans keep
+  /// their `calendarEventId`, so relinking the same calendar finds them again.
+  Future<Result<void>> unlinkCalendar({required String householdId});
 }

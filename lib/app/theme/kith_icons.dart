@@ -62,4 +62,11 @@ abstract final class KithIcons {
 
   /// One contact's hangout history.
   static const history = IconData(0xe1a0, fontFamily: _family);
+
+  /// The household's linked calendar, and a plan that has reached it.
+  ///
+  /// The same glyph as [date] on purpose: a day and the calendar it sits on
+  /// are the same picture, and the two names keep each use reading as what it
+  /// means rather than as where the shape came from.
+  static const IconData calendar = date;
 }

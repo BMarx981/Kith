@@ -168,6 +168,62 @@ void main() {
       );
     });
 
+    test('hands back the access token once a scope is granted', () async {
+      final service = PluginGoogleSignInService();
+
+      final result = await service.authorizeScopes(const ['calendar.events']);
+
+      expect(result.valueOrNull, 'access-token');
+      expect(platform.requestedScopes, ['calendar.events']);
+      expect(platform.promptedForAuthorization, isTrue);
+    });
+
+    test('translates a declined scope sheet into a domain failure', () async {
+      platform.authorizationThrows = const GoogleSignInException(
+        code: GoogleSignInExceptionCode.canceled,
+        description: 'user closed it',
+      );
+      final service = PluginGoogleSignInService();
+
+      final result = await service.authorizeScopes(const ['calendar.events']);
+
+      expect(
+        result.failureOrNull,
+        isA<AuthFailure>().having(
+          (failure) => failure.reason,
+          'reason',
+          AuthFailureReason.cancelled,
+        ),
+      );
+    });
+
+    test('reads an already-granted scope without prompting', () async {
+      final service = PluginGoogleSignInService();
+
+      final token = await service.existingAccessToken(const [
+        'calendar.events',
+      ]);
+
+      expect(token, 'access-token');
+      expect(platform.promptedForAuthorization, isFalse);
+    });
+
+    test('answers null for a scope that was never granted', () async {
+      platform.authorization = null;
+      final service = PluginGoogleSignInService();
+
+      expect(await service.existingAccessToken(const ['scope']), isNull);
+    });
+
+    test('answers null rather than throwing on a silent read', () async {
+      platform.authorizationThrows = const GoogleSignInException(
+        code: GoogleSignInExceptionCode.uiUnavailable,
+      );
+      final service = PluginGoogleSignInService();
+
+      expect(await service.existingAccessToken(const ['scope']), isNull);
+    });
+
     test('signing out before signing in touches nothing', () async {
       await PluginGoogleSignInService().signOut();
 
@@ -204,6 +260,13 @@ class _FakeGoogleSignInPlatform extends GoogleSignInPlatform {
   ClientAuthorizationTokenData? authorization = const
       ClientAuthorizationTokenData(accessToken: 'access-token');
 
+  /// Thrown by the authorization call instead of returning, when set.
+  GoogleSignInException? authorizationThrows;
+
+  /// Whether the last authorization call asked to prompt, or null if none was
+  /// made.
+  bool? promptedForAuthorization;
+
   @override
   Future<void> init(InitParameters params) async => initCalls++;
 
@@ -224,6 +287,9 @@ class _FakeGoogleSignInPlatform extends GoogleSignInPlatform {
     ClientAuthorizationTokensForScopesParameters params,
   ) async {
     requestedScopes = params.request.scopes;
+    promptedForAuthorization = params.request.promptIfUnauthorized;
+    final failure = authorizationThrows;
+    if (failure != null) throw failure;
     return authorization;
   }
 

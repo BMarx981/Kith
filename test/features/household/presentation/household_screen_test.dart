@@ -142,6 +142,32 @@ void main() {
       expect(find.text('This household no longer exists.'), findsOneWidget);
     });
 
+    testWidgets('says the household writes to no calendar yet', (
+      tester,
+    ) async {
+      await seedHousehold();
+
+      await pumpScreen(tester);
+
+      expect(find.byKey(HouseholdScreen.calendarKey), findsOneWidget);
+      expect(find.text('Not linked'), findsOneWidget);
+    });
+
+    testWidgets('names the calendar the household plans go on', (
+      tester,
+    ) async {
+      await seedHousehold();
+      await repository.linkCalendar(
+        householdId: repository.households.keys.single,
+        calendarId: 'cal-1',
+        calendarName: 'Hangouts',
+      );
+
+      await pumpScreen(tester);
+
+      expect(find.text('Plans go on "Hangouts"'), findsOneWidget);
+    });
+
     testWidgets('signs out from the app bar', (tester) async {
       await seedHousehold();
 

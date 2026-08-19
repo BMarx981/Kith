@@ -2,6 +2,7 @@ import 'package:clock/clock.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:kith/core/result/failure.dart';
 import 'package:kith/core/result/result.dart';
+import 'package:kith/core/time/calendar_day.dart';
 import 'package:kith/data/models/planned_hangout.dart';
 import 'package:kith/data/models/planned_hangout_status.dart';
 import 'package:kith/data/repositories/firestore_errors.dart';
@@ -84,6 +85,62 @@ class FirestorePlannedHangoutRepository implements PlannedHangoutRepository {
     required String plannedHangoutId,
   }) => FirestoreErrors.guard(() async {
     await _plans(householdId).doc(plannedHangoutId).delete();
+    return const Ok(null);
+  });
+
+  @override
+  Future<Result<void>> linkCalendarEvent({
+    required String householdId,
+    required String plannedHangoutId,
+    required String calendarEventId,
+  }) {
+    final eventId = calendarEventId.trim();
+    if (eventId.isEmpty ||
+        eventId.length > PlannedHangout.maxCalendarEventIdLength) {
+      return Future.value(
+        const Err(ValidationFailure('That calendar event cannot be stored.')),
+      );
+    }
+    return _patch(householdId, plannedHangoutId, {
+      'status': PlannedHangoutStatus.confirmed.wireName,
+      'calendarEventId': eventId,
+    });
+  }
+
+  @override
+  Future<Result<void>> unlinkCalendarEvent({
+    required String householdId,
+    required String plannedHangoutId,
+  }) => _patch(householdId, plannedHangoutId, {
+    'status': PlannedHangoutStatus.proposed.wireName,
+    'calendarEventId': null,
+  });
+
+  @override
+  Future<Result<void>> reschedulePlan({
+    required String householdId,
+    required String plannedHangoutId,
+    required DateTime plannedFor,
+  }) => _patch(householdId, plannedHangoutId, {
+    // Normalised the way the constructor would: a plan names a day, and the
+    // day is what is stored. See CalendarDay.
+    'plannedFor': CalendarDay.of(plannedFor).millisecondsSinceEpoch,
+  });
+
+  /// Writes [fields] over an existing plan, stamping it as changed.
+  ///
+  /// A partial update rather than a whole document, so the fields the rules
+  /// pin — id, createdBy, createdAt — are never sent at all, and two members
+  /// changing different halves of a plan do not overwrite each other.
+  Future<Result<void>> _patch(
+    String householdId,
+    String plannedHangoutId,
+    Map<String, dynamic> fields,
+  ) => FirestoreErrors.guard(() async {
+    await _plans(householdId).doc(plannedHangoutId).update({
+      ...fields,
+      'updatedAt': _clock.now().toUtc().millisecondsSinceEpoch,
+    });
     return const Ok(null);
   });
 

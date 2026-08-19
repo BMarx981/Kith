@@ -10,6 +10,7 @@ import 'package:kith/data/models/member_role.dart';
 import 'package:kith/features/auth/application/auth_providers.dart';
 import 'package:kith/features/household/application/household_providers.dart';
 import 'package:kith/features/household/presentation/household_failure_message.dart';
+import 'package:kith/routing/app_router.dart';
 
 /// The household's members, and the code that invites more of them.
 ///
@@ -24,6 +25,9 @@ class HouseholdScreen extends ConsumerWidget {
 
   /// Identifies the sign-out action to tests.
   static const signOutKey = Key('household.signOut');
+
+  /// Identifies the way through to the calendar settings to tests.
+  static const calendarKey = Key('household.calendar');
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -69,6 +73,8 @@ class _HouseholdBody extends ConsumerWidget {
           AsyncError(:final error) => _Message(_messageFor(error)),
           _ => const _Loading(),
         },
+        const Divider(height: KithSpacing.xl),
+        _CalendarRow(householdId: householdId),
         const Divider(height: KithSpacing.xl),
         switch (members) {
           AsyncData(:final value) => _MemberList(members: value),
@@ -140,6 +146,31 @@ class _InviteCard extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+/// The way through to the household's calendar link, and what it says today.
+class _CalendarRow extends ConsumerWidget {
+  const _CalendarRow({required this.householdId});
+
+  final String householdId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final name = ref
+        .watch(householdProvider(householdId))
+        .value
+        ?.calendarName;
+
+    return ListTile(
+      key: HouseholdScreen.calendarKey,
+      leading: const Icon(KithIcons.calendar),
+      title: const Text('Calendar'),
+      subtitle: Text(
+        name == null ? 'Not linked' : 'Plans go on "$name"',
+      ),
+      onTap: () => context.router.push(const CalendarSettingsRoute()),
     );
   }
 }

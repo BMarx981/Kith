@@ -11,11 +11,13 @@ import 'package:kith/data/models/contact_priority.dart';
 import 'package:kith/data/models/planned_hangout.dart';
 import 'package:kith/data/models/planned_hangout_status.dart';
 import 'package:kith/features/auth/application/auth_providers.dart';
+import 'package:kith/features/calendar/application/calendar_providers.dart';
 import 'package:kith/features/contacts/domain/cadence.dart';
 import 'package:kith/features/suggestions/application/suggestion_action_controller.dart';
 import 'package:kith/features/suggestions/application/suggestion_providers.dart';
 import 'package:kith/features/suggestions/domain/snooze_horizon.dart';
 
+import '../../../helpers/fake_calendar_sink.dart';
 import '../../../helpers/fake_planned_hangout_repository.dart';
 
 void main() {
@@ -34,18 +36,27 @@ void main() {
   );
 
   late FakePlannedHangoutRepository repository;
+  late FakeCalendarSink sink;
 
   setUp(() {
     repository = FakePlannedHangoutRepository();
+    sink = FakeCalendarSink();
     addTearDown(repository.dispose);
   });
 
-  ProviderContainer containerOf({AuthUser? signedIn = user}) {
+  /// A container whose household has no calendar linked unless [calendarId]
+  /// says otherwise, which is the state every household starts in.
+  ProviderContainer containerOf({
+    AuthUser? signedIn = user,
+    String? calendarId,
+  }) {
     final container = ProviderContainer(
       overrides: [
         plannedHangoutRepositoryProvider.overrideWithValue(repository),
         currentUserProvider.overrideWithValue(signedIn),
         clockProvider.overrideWithValue(Clock.fixed(now)),
+        calendarSinkProvider.overrideWithValue(sink),
+        householdCalendarIdProvider(householdId).overrideWithValue(calendarId),
       ],
     );
     addTearDown(container.dispose);
@@ -55,19 +66,31 @@ void main() {
   SuggestionActionController controllerOf(ProviderContainer container) =>
       container.read(suggestionActionControllerProvider.notifier);
 
+  /// A plan that is not on any calendar, for the cancels that never made one.
+  PlannedHangout planFor(String id) => PlannedHangout(
+    id: id,
+    plannedFor: DateTime.utc(2026, 8, 25),
+    contactIds: const ['cid-1'],
+    status: PlannedHangoutStatus.proposed,
+    createdBy: user.id,
+    createdAt: now,
+    updatedAt: now,
+  );
+
   group('plan', () {
     test('stores an intent for the day given, credited to the member', ()
         async {
       final container = containerOf();
 
-      final plan = await controllerOf(container).plan(
+      final outcome = await controllerOf(container).plan(
         householdId: householdId,
         contactId: 'cid-1',
+        title: 'Marcus Bell',
         plannedFor: DateTime.utc(2026, 8, 25),
       );
 
-      expect(plan?.plannedFor, DateTime.utc(2026, 8, 25));
-      expect(plan?.status, PlannedHangoutStatus.proposed);
+      expect(outcome?.plan.plannedFor, DateTime.utc(2026, 8, 25));
+      expect(outcome?.plan.status, PlannedHangoutStatus.proposed);
       expect(repository.planCalls.single.createdBy, 'uid-1');
       expect(repository.planCalls.single.contactIds, ['cid-1']);
       expect(repository.planCalls.single.householdId, householdId);
@@ -79,6 +102,7 @@ void main() {
       await controllerOf(container).plan(
         householdId: householdId,
         contactId: 'cid-1',
+        title: 'Marcus Bell',
         plannedFor: DateTime.utc(2026, 8, 25),
       );
 
@@ -97,13 +121,14 @@ void main() {
       final container = containerOf();
       repository.nextFailure = const NetworkFailure('offline');
 
-      final plan = await controllerOf(container).plan(
+      final outcome = await controllerOf(container).plan(
         householdId: householdId,
         contactId: 'cid-1',
+        title: 'Marcus Bell',
         plannedFor: DateTime.utc(2026, 8, 25),
       );
 
-      expect(plan, isNull);
+      expect(outcome, isNull);
       expect(
         container.read(suggestionActionControllerProvider).failure,
         isA<NetworkFailure>(),
@@ -117,13 +142,14 @@ void main() {
     test('refuses to write with nobody signed in', () async {
       final container = containerOf(signedIn: null);
 
-      final plan = await controllerOf(container).plan(
+      final outcome = await controllerOf(container).plan(
         householdId: householdId,
         contactId: 'cid-1',
+        title: 'Marcus Bell',
         plannedFor: DateTime.utc(2026, 8, 25),
       );
 
-      expect(plan, isNull);
+      expect(outcome, isNull);
       expect(repository.planCalls, isEmpty);
       expect(
         container.read(suggestionActionControllerProvider).failure,
@@ -139,6 +165,7 @@ void main() {
       final first = controllerOf(container).plan(
         householdId: householdId,
         contactId: 'cid-1',
+        title: 'Marcus Bell',
         plannedFor: DateTime.utc(2026, 8, 25),
       );
       await pumpEventQueue();
@@ -150,13 +177,90 @@ void main() {
       final second = await controllerOf(container).plan(
         householdId: householdId,
         contactId: 'cid-1',
+        title: 'Marcus Bell',
         plannedFor: DateTime.utc(2026, 8, 25),
       );
       repository.gate!.complete();
 
       expect(second, isNull);
-      expect(await first, isA<PlannedHangout>());
+      expect((await first)?.plan, isA<PlannedHangout>());
       expect(repository.planCalls, hasLength(1));
+    });
+
+    test('writes nothing to a calendar the household has not linked', ()
+        async {
+      final container = containerOf();
+
+      final outcome = await controllerOf(container).plan(
+        householdId: householdId,
+        contactId: 'cid-1',
+        title: 'Marcus Bell',
+        plannedFor: DateTime.utc(2026, 8, 25),
+      );
+
+      expect(outcome?.isOnCalendar, isFalse);
+      expect(outcome?.calendarFailure, isNull);
+      expect(sink.createCalls, isEmpty);
+    });
+
+    test('puts the plan on a linked calendar, named for the contact', ()
+        async {
+      final container = containerOf(calendarId: 'cal-1');
+
+      final outcome = await controllerOf(container).plan(
+        householdId: householdId,
+        contactId: 'cid-1',
+        title: 'Marcus Bell',
+        plannedFor: DateTime.utc(2026, 8, 25),
+      );
+
+      expect(outcome?.isOnCalendar, isTrue);
+      expect(sink.createCalls.single.calendarId, 'cal-1');
+      expect(sink.createCalls.single.title, 'Marcus Bell');
+      expect(sink.createCalls.single.day, DateTime.utc(2026, 8, 25));
+      expect(
+        repository.plans[outcome!.plan.id]?.status,
+        PlannedHangoutStatus.confirmed,
+      );
+    });
+
+    test('keeps the plan when the calendar refuses the event', () async {
+      final container = containerOf(calendarId: 'cal-1');
+      sink.createFailure = const PermissionFailure('no access');
+
+      final outcome = await controllerOf(container).plan(
+        householdId: householdId,
+        contactId: 'cid-1',
+        title: 'Marcus Bell',
+        plannedFor: DateTime.utc(2026, 8, 25),
+      );
+
+      expect(outcome?.plan, isNotNull);
+      expect(outcome?.isOnCalendar, isFalse);
+      expect(outcome?.calendarFailure, isA<PermissionFailure>());
+      expect(
+        repository.plans[outcome!.plan.id]?.status,
+        PlannedHangoutStatus.proposed,
+      );
+    });
+
+    test('leaves the card clean when only the calendar failed', () async {
+      final container = containerOf(calendarId: 'cal-1');
+      sink.createFailure = const NetworkFailure('offline');
+
+      await controllerOf(container).plan(
+        householdId: householdId,
+        contactId: 'cid-1',
+        title: 'Marcus Bell',
+        plannedFor: DateTime.utc(2026, 8, 25),
+      );
+
+      // The arrangement stands, so the card is not left holding an error
+      // about it; what the calendar did is on the outcome instead.
+      expect(
+        container.read(suggestionActionControllerProvider).failure,
+        isNull,
+      );
     });
   });
 
@@ -209,15 +313,16 @@ void main() {
   group('cancel', () {
     test('drops the plan and clears the state', () async {
       final container = containerOf();
-      final plan = await controllerOf(container).plan(
+      final outcome = await controllerOf(container).plan(
         householdId: householdId,
         contactId: 'cid-1',
+        title: 'Marcus Bell',
         plannedFor: DateTime.utc(2026, 8, 25),
       );
 
       final undone = await controllerOf(container).cancel(
         householdId: householdId,
-        plannedHangoutId: plan!.id,
+        plan: outcome!.plan,
       );
 
       expect(undone, isTrue);
@@ -234,7 +339,7 @@ void main() {
 
       final undone = await controllerOf(container).cancel(
         householdId: householdId,
-        plannedHangoutId: 'pid-1',
+        plan: planFor('pid-1'),
       );
 
       expect(undone, isFalse);
@@ -249,19 +354,64 @@ void main() {
       repository.gate = Completer<void>();
       final pending = controllerOf(container).cancel(
         householdId: householdId,
-        plannedHangoutId: 'pid-1',
+        plan: planFor('pid-1'),
       );
       await pumpEventQueue();
 
       final second = await controllerOf(container).cancel(
         householdId: householdId,
-        plannedHangoutId: 'pid-1',
+        plan: planFor('pid-1'),
       );
       repository.gate!.complete();
       await pending;
 
       expect(second, isFalse);
       expect(repository.cancelCalls, hasLength(1));
+    });
+
+    test('takes the event off the calendar before dropping the plan', ()
+        async {
+      final container = containerOf(calendarId: 'cal-1');
+      final outcome = await controllerOf(container).plan(
+        householdId: householdId,
+        contactId: 'cid-1',
+        title: 'Marcus Bell',
+        plannedFor: DateTime.utc(2026, 8, 25),
+      );
+
+      final undone = await controllerOf(container).cancel(
+        householdId: householdId,
+        plan: repository.plans[outcome!.plan.id]!,
+      );
+
+      expect(undone, isTrue);
+      expect(sink.events, isEmpty);
+      expect(repository.plans, isEmpty);
+    });
+
+    test('still drops the plan when the event will not come off', () async {
+      final container = containerOf(calendarId: 'cal-1');
+      final outcome = await controllerOf(container).plan(
+        householdId: householdId,
+        contactId: 'cid-1',
+        title: 'Marcus Bell',
+        plannedFor: DateTime.utc(2026, 8, 25),
+      );
+      sink.deleteFailure = const NetworkFailure('offline');
+
+      final undone = await controllerOf(container).cancel(
+        householdId: householdId,
+        plan: repository.plans[outcome!.plan.id]!,
+      );
+
+      expect(undone, isTrue);
+      expect(repository.plans, isEmpty);
+      // A plan that will not go away is worse than an event the household can
+      // delete themselves, so the refusal is reported rather than obeyed.
+      expect(
+        container.read(suggestionActionControllerProvider).failure,
+        isA<NetworkFailure>(),
+      );
     });
   });
 }

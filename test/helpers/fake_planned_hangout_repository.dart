@@ -40,6 +40,19 @@ class FakePlannedHangoutRepository implements PlannedHangoutRepository {
   /// Arguments of every [cancelPlan] call, oldest first.
   final cancelCalls = <({String householdId, String plannedHangoutId})>[];
 
+  /// Arguments of every [linkCalendarEvent] call, oldest first.
+  final linkCalls =
+      <
+        ({String householdId, String plannedHangoutId, String calendarEventId})
+      >[];
+
+  /// Arguments of every [unlinkCalendarEvent] call, oldest first.
+  final unlinkCalls = <({String householdId, String plannedHangoutId})>[];
+
+  /// Arguments of every [reschedulePlan] call, oldest first.
+  final rescheduleCalls =
+      <({String householdId, String plannedHangoutId, DateTime plannedFor})>[];
+
   /// Failure to return from the next write, instead of succeeding. Cleared
   /// once consumed.
   Failure? nextFailure;
@@ -130,6 +143,69 @@ class FakePlannedHangoutRepository implements PlannedHangoutRepository {
       return const Err(NotFoundFailure('No such plan.'));
     }
     if (_changes.hasListener) _changes.add(null);
+    return const Ok(null);
+  }
+
+  @override
+  Future<Result<void>> linkCalendarEvent({
+    required String householdId,
+    required String plannedHangoutId,
+    required String calendarEventId,
+  }) => _update(plannedHangoutId, (plan) {
+    linkCalls.add((
+      householdId: householdId,
+      plannedHangoutId: plannedHangoutId,
+      calendarEventId: calendarEventId,
+    ));
+    return plan.copyWith(
+      status: PlannedHangoutStatus.confirmed,
+      calendarEventId: calendarEventId,
+      updatedAt: now,
+    );
+  });
+
+  @override
+  Future<Result<void>> unlinkCalendarEvent({
+    required String householdId,
+    required String plannedHangoutId,
+  }) => _update(plannedHangoutId, (plan) {
+    unlinkCalls.add((
+      householdId: householdId,
+      plannedHangoutId: plannedHangoutId,
+    ));
+    return plan.copyWith(
+      status: PlannedHangoutStatus.proposed,
+      clearCalendarEventId: true,
+      updatedAt: now,
+    );
+  });
+
+  @override
+  Future<Result<void>> reschedulePlan({
+    required String householdId,
+    required String plannedHangoutId,
+    required DateTime plannedFor,
+  }) => _update(plannedHangoutId, (plan) {
+    rescheduleCalls.add((
+      householdId: householdId,
+      plannedHangoutId: plannedHangoutId,
+      plannedFor: plannedFor,
+    ));
+    return plan.copyWith(plannedFor: plannedFor, updatedAt: now);
+  });
+
+  /// Applies [change] to a stored plan, or refuses the way the backend would.
+  Future<Result<void>> _update(
+    String plannedHangoutId,
+    PlannedHangout Function(PlannedHangout plan) change,
+  ) async {
+    await gate?.future;
+    final failure = _takeFailure();
+    if (failure != null) return Err(failure);
+
+    final plan = plans[plannedHangoutId];
+    if (plan == null) return const Err(NotFoundFailure('No such plan.'));
+    _put(change(plan));
     return const Ok(null);
   }
 

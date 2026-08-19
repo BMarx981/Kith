@@ -58,7 +58,8 @@ Run analyze + the full test suite before declaring any task done. Never mark wor
 - RelationshipTypes are per-household, editable, deletable only with reassignment.
 - Hangouts are one event naming several contacts, and they do hard-delete: a mislogged meetup is an error in the record, not history. Contacts still only archive.
 - Kid's-friend contacts carry parent/guardian name + phone as first-class fields.
-- Calendar: `CalendarSink` interface. `GoogleCalendarSink` is the supported path (Skylight subscribes to the Google Calendar). `SkylightDirectSink` (unofficial reverse-engineered API) is deferred and out of the milestone plan; if it is ever built it is experimental, feature-flagged, and allowed to fail gracefully — never let it block core flows. See `docs/SKYLIGHT.md`.
+- Calendar: two seams. `CalendarSink` writes a household's plans as all-day events; `CalendarDirectory` lists the calendars an account could link. `GoogleCalendarSink` and `GoogleCalendarDirectory` are the supported path (Skylight subscribes to the Google Calendar), and share `GoogleCalendarClient` for transport and error mapping. `SkylightDirectSink` (unofficial reverse-engineered API) is deferred and out of the milestone plan; if it is ever built it is experimental, feature-flagged, and allowed to fail gracefully — never let it block core flows. See `docs/SKYLIGHT.md`.
+- The calendar link (`calendarId`/`calendarName`) is a household field any member may set; the OAuth grant behind it is per member and never stored. A `PlannedHangout` is `confirmed` when, and only when, it is on that calendar. Calendar → Kith is a poll on app open and on resume, never a webhook.
 
 ## Boundaries
 

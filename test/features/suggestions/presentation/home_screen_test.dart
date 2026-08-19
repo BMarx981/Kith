@@ -12,7 +12,9 @@ import 'package:kith/data/models/contact_priority.dart';
 import 'package:kith/data/models/hangout.dart';
 import 'package:kith/data/models/planned_hangout.dart';
 import 'package:kith/data/models/planned_hangout_status.dart';
+import 'package:kith/data/services/calendar_sink.dart';
 import 'package:kith/features/auth/application/auth_providers.dart';
+import 'package:kith/features/calendar/application/calendar_providers.dart';
 import 'package:kith/features/contacts/application/contact_providers.dart';
 import 'package:kith/features/contacts/domain/cadence.dart';
 import 'package:kith/features/hangouts/application/hangout_providers.dart';
@@ -22,6 +24,7 @@ import 'package:kith/features/suggestions/domain/snooze_horizon.dart';
 import 'package:kith/features/suggestions/presentation/home_screen.dart';
 
 import '../../../helpers/fake_auth_service.dart';
+import '../../../helpers/fake_calendar_sink.dart';
 import '../../../helpers/fake_contact_repository.dart';
 import '../../../helpers/fake_hangout_repository.dart';
 import '../../../helpers/fake_household_repository.dart';
@@ -38,6 +41,7 @@ void main() {
   late FakeContactRepository contacts;
   late FakeHangoutRepository hangouts;
   late FakePlannedHangoutRepository plans;
+  late FakeCalendarSink sink;
 
   setUp(() {
     auth = FakeAuthService(initialUser: owner);
@@ -50,9 +54,15 @@ void main() {
     addTearDown(hangouts.dispose);
     plans = FakePlannedHangoutRepository();
     addTearDown(plans.dispose);
+    sink = FakeCalendarSink();
   });
 
-  List<Override> overrides({String? household = householdId}) => [
+  /// The household has no calendar linked unless [calendarId] says otherwise,
+  /// which is the state every household starts in.
+  List<Override> overrides({
+    String? household = householdId,
+    String? calendarId,
+  }) => [
     authServiceProvider.overrideWithValue(auth),
     householdRepositoryProvider.overrideWithValue(households),
     currentHouseholdIdProvider.overrideWithValue(household),
@@ -60,6 +70,9 @@ void main() {
     hangoutRepositoryProvider.overrideWithValue(hangouts),
     plannedHangoutRepositoryProvider.overrideWithValue(plans),
     clockProvider.overrideWithValue(Clock.fixed(now)),
+    calendarSinkProvider.overrideWithValue(sink),
+    if (household != null)
+      householdCalendarIdProvider(household).overrideWithValue(calendarId),
   ];
 
   void seedContact(
@@ -94,12 +107,35 @@ void main() {
   Future<void> pumpHome(
     WidgetTester tester, {
     String? household = householdId,
+    String? calendarId,
   }) async {
     await tester.pumpApp(
       const HomeScreen(),
-      overrides: overrides(household: household),
+      overrides: overrides(household: household, calendarId: calendarId),
     );
     await tester.pumpAndSettle();
+  }
+
+  /// A plan already on the household's calendar, as the other partner's
+  /// device would have left it.
+  PlannedHangout seedConfirmedPlan({
+    String id = 'pid-1',
+    String contactId = 'cid-1',
+    DateTime? plannedFor,
+    String eventId = 'evt_1',
+  }) {
+    final plan = PlannedHangout(
+      id: id,
+      plannedFor: plannedFor ?? DateTime.utc(2026, 8, 25),
+      contactIds: [contactId],
+      status: PlannedHangoutStatus.confirmed,
+      createdBy: 'uid-1',
+      createdAt: now,
+      updatedAt: now,
+      calendarEventId: eventId,
+    );
+    plans.seed(plan);
+    return plan;
   }
 
   group('the frame', () {
@@ -357,6 +393,135 @@ void main() {
         ),
         findsOneWidget,
       );
+      expect(find.byKey(HomeScreen.cardKey('cid-1')), findsOneWidget);
+    });
+  });
+
+  group('the household calendar', () {
+    testWidgets('puts a new plan on the linked calendar and says so', (
+      tester,
+    ) async {
+      seedContact('cid-1', 'Marcus Bell');
+      seenDaysAgo('cid-1', 60);
+      await pumpHome(tester, calendarId: 'cal-1');
+
+      await tester.tap(find.byKey(HomeScreen.planKey('cid-1')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('OK'));
+      await tester.pumpAndSettle();
+
+      expect(sink.createCalls.single.calendarId, 'cal-1');
+      expect(sink.createCalls.single.title, 'Marcus Bell');
+      expect(
+        find.text(
+          'Planned with Marcus Bell for Tue 25 Aug. Added to the calendar.',
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('says the plan stands even when the calendar refused it', (
+      tester,
+    ) async {
+      seedContact('cid-1', 'Marcus Bell');
+      seenDaysAgo('cid-1', 60);
+      await pumpHome(tester, calendarId: 'cal-1');
+      sink.createFailure = const NetworkFailure('offline');
+
+      await tester.tap(find.byKey(HomeScreen.planKey('cid-1')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('OK'));
+      await tester.pumpAndSettle();
+
+      expect(plans.plans, hasLength(1));
+      expect(
+        find.textContaining(
+          'Planned with Marcus Bell for Tue 25 Aug. Google Calendar could '
+          'not be reached.',
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('marks a plan that reached the calendar', (tester) async {
+      seedContact('cid-1', 'Marcus Bell');
+      seenDaysAgo('cid-1', 60);
+      seedConfirmedPlan();
+      sink.seed(
+        CalendarEvent(
+          id: 'evt_1',
+          title: 'Marcus Bell',
+          day: DateTime.utc(2026, 8, 25),
+        ),
+      );
+
+      await pumpHome(tester, calendarId: 'cal-1');
+
+      expect(find.text('Planned Tue 25 Aug'), findsOneWidget);
+      expect(find.byIcon(KithIcons.calendar), findsOneWidget);
+    });
+
+    testWidgets('drops a plan whose event was deleted in the calendar', (
+      tester,
+    ) async {
+      seedContact('cid-1', 'Marcus Bell');
+      seenDaysAgo('cid-1', 60);
+      seedConfirmedPlan();
+
+      await pumpHome(tester, calendarId: 'cal-1');
+
+      expect(sink.fetchCalls.single.eventId, 'evt_1');
+      expect(plans.plans, isEmpty);
+    });
+
+    testWidgets('follows an event that was moved to another day', (
+      tester,
+    ) async {
+      seedContact('cid-1', 'Marcus Bell');
+      seenDaysAgo('cid-1', 60);
+      seedConfirmedPlan();
+      sink.seed(
+        CalendarEvent(
+          id: 'evt_1',
+          title: 'Marcus Bell',
+          day: DateTime.utc(2026, 8, 27),
+        ),
+      );
+
+      await pumpHome(tester, calendarId: 'cal-1');
+
+      expect(plans.plans['pid-1']?.plannedFor, DateTime.utc(2026, 8, 27));
+      expect(find.text('Planned Thu 27 Aug'), findsOneWidget);
+    });
+
+    testWidgets('asks the calendar nothing when none is linked', (
+      tester,
+    ) async {
+      seedContact('cid-1', 'Marcus Bell');
+      seenDaysAgo('cid-1', 60);
+      seedConfirmedPlan();
+
+      await pumpHome(tester);
+
+      expect(sink.fetchCalls, isEmpty);
+      expect(plans.plans, hasLength(1));
+    });
+
+    testWidgets('says quietly when the calendar could not be read', (
+      tester,
+    ) async {
+      seedContact('cid-1', 'Marcus Bell');
+      seenDaysAgo('cid-1', 60);
+      seedConfirmedPlan();
+      sink.fetchFailure = const NetworkFailure('offline');
+
+      await pumpHome(tester, calendarId: 'cal-1');
+
+      expect(
+        find.textContaining('Plans may be out of step with the calendar.'),
+        findsOneWidget,
+      );
+      // The suggestions themselves are Kith's own, and stay on screen.
       expect(find.byKey(HomeScreen.cardKey('cid-1')), findsOneWidget);
     });
   });

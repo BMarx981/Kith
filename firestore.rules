@@ -83,14 +83,19 @@ service cloud.firestore {
 
     // ---- households/{hid} ------------------------------------------------
 
+    // calendarId and calendarName are optional and absent on every household
+    // written before M5, so they are allowed but never required.
     function isValidHousehold(hid, data) {
-      return data.keys().hasOnly(['id', 'name', 'inviteCode', 'createdAt', 'createdBy']) &&
+      return data.keys().hasOnly(['id', 'name', 'inviteCode', 'createdAt', 'createdBy',
+          'calendarId', 'calendarName']) &&
         data.keys().hasAll(['id', 'name', 'inviteCode', 'createdAt', 'createdBy']) &&
         data.id == hid &&
         isBoundedString(data.name, 100) &&
         isInviteCode(data.inviteCode) &&
         isEpochMillis(data.createdAt) &&
-        data.createdBy is string;
+        data.createdBy is string &&
+        isOptionalString(data, 'calendarId', 1024) &&
+        isOptionalString(data, 'calendarName', 200);
     }
 
     match /households/{hid} {
@@ -104,18 +109,32 @@ service cloud.firestore {
         request.resource.data.createdBy == request.auth.uid &&
         ownsIndexEntryFor(request.resource.data.inviteCode, hid);
 
+      // Two updates, with different gates.
+      //
       // Owners may rename the household and rotate its invite code. Rotating
       // requires having reserved the new code first, so an owner cannot point
       // their household at an index entry somebody else created.
-      allow update: if isOwner(hid) &&
-        isValidHousehold(hid, request.resource.data) &&
+      //
+      // Any member may link or unlink the household calendar. The calendar the
+      // frame reads is household property rather than the owner's, the OAuth
+      // grant behind the pick is the linking member's own, and a household
+      // whose owner is asleep should not be stuck without one. The two branches
+      // are exclusive on affectedKeys, so neither can be used to make the
+      // other's change.
+      allow update: if isValidHousehold(hid, request.resource.data) &&
         unchanged('id') &&
         unchanged('createdAt') &&
         unchanged('createdBy') &&
-        request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['name', 'inviteCode']) &&
-        (request.resource.data.inviteCode == resource.data.inviteCode ||
-          ownsIndexEntryFor(request.resource.data.inviteCode, hid));
+        (
+          (isOwner(hid) &&
+            request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['name', 'inviteCode']) &&
+            (request.resource.data.inviteCode == resource.data.inviteCode ||
+              ownsIndexEntryFor(request.resource.data.inviteCode, hid))) ||
+          (isMember(hid) &&
+            request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['calendarId', 'calendarName']))
+        );
 
       // No household deletion in v1. Removing one means cascading every
       // subcollection, which a client cannot do atomically.
@@ -317,8 +336,9 @@ service cloud.firestore {
       //
       // Authorship is pinned the way a hangout's is: createdBy must be the
       // caller on create and cannot move afterwards. calendarEventId is
-      // writable here and unused by the app until M5 confirms a plan onto the
-      // household's calendar.
+      // written when a plan is confirmed onto the household's calendar, and
+      // cleared when its event goes; either member may do both, because the
+      // calendar is shared and so is the plan.
 
       function isValidPlannedHangout(pid, data) {
         return data.keys().hasOnly(['id', 'plannedFor', 'contactIds', 'status',
@@ -344,9 +364,10 @@ service cloud.firestore {
           isValidPlannedHangout(pid, request.resource.data) &&
           request.resource.data.createdBy == request.auth.uid;
 
-        // Confirming a plan onto the calendar is an update over an existing
-        // document, so the merged document is what gets validated and the
-        // three immutable fields are pinned separately.
+        // Confirming a plan onto the calendar, following an event that was
+        // moved, and dropping the link when the event goes are all updates
+        // over an existing document, so the merged document is what gets
+        // validated and the three immutable fields are pinned separately.
         allow update: if isMember(hid) &&
           isValidPlannedHangout(pid, request.resource.data) &&
           unchanged('id') &&

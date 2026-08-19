@@ -16,8 +16,11 @@ should be built before anything beyond the two-person household depends on it.
 
 M3 (2026-08-18) added shape validation for `hangouts/{hgid}` under the same
 deviation: the rules compile clean by the check below, the matrix gained its
-hangout cases, and none of them are executed. The debt is now two milestones
-deep and is the largest single thing outstanding on the backend.
+hangout cases, and none of them are executed. M5 (2026-08-18) added the
+household calendar fields and a second update branch on `households/{hid}`
+under the deviation again: same compile check, matrix cases added below, none
+executed. The debt is now three milestones deep and is the largest single thing
+outstanding on the backend.
 
 What *was* verified: the rules compile clean. The emulator does not compile
 rules at startup, so the check is a `PUT` of the file to the running emulator's
@@ -237,6 +240,16 @@ Rules to write explicitly, because they are the ones that bite:
   contact's hangouts are the household's history and deleting the person would
   orphan them. `isArchived` is the soft delete.
 
+Amended 2026-08-18 by M5: `households/{hid}` gained optional `calendarId` and
+`calendarName`, and its update rule split into two branches. Owners may still
+change `name` and `inviteCode`; any member may change `calendarId` and
+`calendarName` and nothing else. The branches are exclusive on `affectedKeys`,
+so the member branch cannot be used to rename a household or rotate its code,
+and the owner branch cannot be used to relink the calendar in the same write.
+Any member may link because the calendar the frame reads is household property
+rather than the owner's, and the OAuth grant behind the pick belongs to
+whoever made it.
+
 Amended 2026-08-18, when M2 landed the contact and label models: those two
 paths moved from "membership is the whole gate" to full shape validation
 mirroring `lib/data/models/contact.dart` and
@@ -303,6 +316,32 @@ cases that are specific to this design:
 - Note past 2000 characters: denied.
 - Non-member reads or writes any hangout: denied.
 - Member deletes a hangout: allowed. (Unlike contacts, which have no delete.)
+
+**Planned hangouts** (extended with the calendar writes in M5, 2026-08-18)
+- Member makes a plan naming themselves as `createdBy`: allowed.
+- Member makes one crediting somebody else: denied.
+- Member confirms another member's plan onto the calendar, writing
+  `status: 'confirmed'` and a `calendarEventId`: allowed.
+- Member clears a `calendarEventId` back to null: allowed.
+- Member moves another member's plan to a different `plannedFor`: allowed.
+- Update attempting to change `createdBy` or `createdAt`: denied.
+- `calendarEventId` past 1024 characters: denied.
+- `status` outside proposed/confirmed/snoozed: denied.
+- Non-member reads or writes any plan: denied.
+- Member deletes a plan: allowed.
+
+**Household calendar** (added in M5, 2026-08-18)
+- Member who is not the owner links a calendar, writing `calendarId` and
+  `calendarName` only: allowed.
+- The same member renaming the household in that write: denied.
+- The same member rotating the invite code in that write: denied.
+- Owner renaming the household while also changing `calendarId`: denied — the
+  two branches are exclusive, so it takes two writes.
+- Member unlinks, writing both fields as null: allowed.
+- `calendarId` past 1024 characters, or `calendarName` past 200: denied.
+- Non-member links a calendar: denied.
+- A household document written before M5, with neither field present, still
+  passes validation on an unrelated update: allowed.
 
 **Immutability**
 - Update attempting to change `households/{hid}.createdAt` / `createdBy` / `id`: denied.

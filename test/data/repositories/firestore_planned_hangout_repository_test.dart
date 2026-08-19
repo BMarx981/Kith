@@ -231,6 +231,152 @@ void main() {
     });
   });
 
+  group('linkCalendarEvent', () {
+    test('confirms the plan and records the event id', () async {
+      final plan = await makePlan();
+
+      final result = await repository.linkCalendarEvent(
+        householdId: householdId,
+        plannedHangoutId: plan.id,
+        calendarEventId: 'evt_1',
+      );
+
+      expect(result.isOk, isTrue);
+      final stored = PlannedHangout.fromMap(
+        (await plans().doc(plan.id).get()).data()!,
+      );
+      expect(stored.status, PlannedHangoutStatus.confirmed);
+      expect(stored.calendarEventId, 'evt_1');
+    });
+
+    test('leaves the day, the people and the author alone', () async {
+      final plan = await makePlan(contactIds: ['cid-1', 'cid-2']);
+
+      await repository.linkCalendarEvent(
+        householdId: householdId,
+        plannedHangoutId: plan.id,
+        calendarEventId: 'evt_1',
+      );
+
+      final stored = PlannedHangout.fromMap(
+        (await plans().doc(plan.id).get()).data()!,
+      );
+      expect(stored.plannedFor, plan.plannedFor);
+      expect(stored.contactIds, plan.contactIds);
+      expect(stored.createdBy, plan.createdBy);
+      expect(stored.createdAt, plan.createdAt);
+    });
+
+    test('refuses an event id the rules would reject, without I/O', () async {
+      final plan = await makePlan();
+
+      final blank = await repository.linkCalendarEvent(
+        householdId: householdId,
+        plannedHangoutId: plan.id,
+        calendarEventId: '  ',
+      );
+      final huge = await repository.linkCalendarEvent(
+        householdId: householdId,
+        plannedHangoutId: plan.id,
+        calendarEventId: 'e' * (PlannedHangout.maxCalendarEventIdLength + 1),
+      );
+
+      expect(blank.failureOrNull, isA<ValidationFailure>());
+      expect(huge.failureOrNull, isA<ValidationFailure>());
+      final stored = PlannedHangout.fromMap(
+        (await plans().doc(plan.id).get()).data()!,
+      );
+      expect(stored.calendarEventId, isNull);
+      expect(stored.status, PlannedHangoutStatus.proposed);
+    });
+
+    test('reports a plan that is no longer there', () async {
+      final result = await repository.linkCalendarEvent(
+        householdId: householdId,
+        plannedHangoutId: 'gone',
+        calendarEventId: 'evt_1',
+      );
+
+      expect(result.failureOrNull, isA<NotFoundFailure>());
+    });
+  });
+
+  group('unlinkCalendarEvent', () {
+    test('drops the event and returns the plan to proposed', () async {
+      final plan = await makePlan();
+      await repository.linkCalendarEvent(
+        householdId: householdId,
+        plannedHangoutId: plan.id,
+        calendarEventId: 'evt_1',
+      );
+
+      final result = await repository.unlinkCalendarEvent(
+        householdId: householdId,
+        plannedHangoutId: plan.id,
+      );
+
+      expect(result.isOk, isTrue);
+      final stored = PlannedHangout.fromMap(
+        (await plans().doc(plan.id).get()).data()!,
+      );
+      expect(stored.calendarEventId, isNull);
+      expect(stored.status, PlannedHangoutStatus.proposed);
+    });
+  });
+
+  group('reschedulePlan', () {
+    test('moves the plan to the day the calendar now names', () async {
+      final plan = await makePlan();
+
+      final result = await repository.reschedulePlan(
+        householdId: householdId,
+        plannedHangoutId: plan.id,
+        plannedFor: DateTime.utc(2026, 9, 2),
+      );
+
+      expect(result.isOk, isTrue);
+      final stored = PlannedHangout.fromMap(
+        (await plans().doc(plan.id).get()).data()!,
+      );
+      expect(stored.plannedFor, DateTime.utc(2026, 9, 2));
+    });
+
+    test('stores a day rather than the instant it was given', () async {
+      final plan = await makePlan();
+
+      await repository.reschedulePlan(
+        householdId: householdId,
+        plannedHangoutId: plan.id,
+        plannedFor: DateTime.utc(2026, 9, 2, 17, 45),
+      );
+
+      final stored = PlannedHangout.fromMap(
+        (await plans().doc(plan.id).get()).data()!,
+      );
+      expect(stored.plannedFor, DateTime.utc(2026, 9, 2));
+    });
+
+    test('stamps the change without moving createdAt', () async {
+      final plan = await makePlan();
+      final later = FirestorePlannedHangoutRepository(
+        firestore,
+        Clock.fixed(now.add(const Duration(days: 1))),
+      );
+
+      await later.reschedulePlan(
+        householdId: householdId,
+        plannedHangoutId: plan.id,
+        plannedFor: DateTime.utc(2026, 9, 2),
+      );
+
+      final stored = PlannedHangout.fromMap(
+        (await plans().doc(plan.id).get()).data()!,
+      );
+      expect(stored.createdAt, plan.createdAt);
+      expect(stored.updatedAt, now.add(const Duration(days: 1)));
+    });
+  });
+
   group('watchPlannedHangouts', () {
     test('emits the household plans, soonest day first', () async {
       await makePlan(plannedFor: DateTime.utc(2026, 9, 10));

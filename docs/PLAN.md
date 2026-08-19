@@ -172,7 +172,7 @@ lib/
     contacts/          // list, detail, edit, relationship type manager
     hangouts/          // quick-log flow, history
     suggestions/       // engine (pure) + home screen presentation
-    calendar/          // CalendarSink + Google Calendar
+    calendar/          // CalendarSink + Google Calendar: link, publish, poll
   routing/             // AutoRoute definitions + guards
 ```
 
@@ -299,6 +299,45 @@ third-party refresh interval, for a write the tests can already prove correct.
 Once the event is right in Google Calendar, the frame is a setup step, not a
 feature.
 
+M5 landed 2026-08-18. Three notes on what the milestone actually needed.
+
+**Two scopes, not one.** §6's risk row says `calendar.events`, which covers
+writing a plan onto a calendar and taking it off again. It does not cover
+reading which calendars an account has, so on that scope alone the only way to
+link one would be to type its address. The picker the milestone asks for needs
+`calendar.calendarlist.readonly` alongside it — read-only, and over the
+subscription list rather than over anybody's events. Both are asked for
+together, at link time rather than at sign-in, so signing in to Kith still
+grants it nothing.
+
+**The link is on the household; the grant is per member.** `calendarId` and
+`calendarName` are fields on `households/{hid}`, because the calendar the frame
+reads is household property and both partners' plans belong on it. The OAuth
+grant behind it is personal and is never stored: each member authorises their
+own Google account, and a member without access to the linked calendar finds
+out when a write is refused rather than by being told in advance. Any member
+may link or unlink, which is a second branch on the household update rule
+rather than an owner-only change.
+
+**`confirmed` means one thing.** A plan is confirmed when, and only when, it is
+on the household's calendar. Planning with a calendar linked writes the event
+and confirms in one gesture; a plan whose event could not be written stays
+`proposed` and says so on the card. That is what makes the status worth storing
+rather than deriving, and it is what the poll reconciles against.
+
+What M5 does not do: it never deletes an event it did not write, so unlinking a
+calendar leaves the events already on it alone, and a cancel whose event delete
+failed leaves one entry behind for the household to remove themselves. There is
+no sweep for orphans.
+
+**The gate is a device check.** Everything below it is proven headlessly: the
+REST calls against a mocked transport, the sync ordering against a fake sink,
+the plan flow and the poll through the widget tree. What no test can prove is
+the last mile — a real OAuth client, a real Google account, a real second
+client looking at the same calendar. Confirming a plan and watching it appear,
+then cancelling it and watching it go, is a run on a device against the
+household's own account.
+
 ### M6 — Polish & stretch (optional)
 - Weekly digest local notification
 - Contact import from device contacts
@@ -311,7 +350,7 @@ feature.
 | Risk | Mitigation |
 |---|---|
 | Skylight has no official API | No milestone depends on one: the frame subscribes to the Google Calendar M5 writes. Direct-to-frame work is scoped separately in `docs/SKYLIGHT.md` |
-| Google Calendar OAuth verification friction (restricted scopes) | Use `calendar.events` scope on a dedicated calendar only; personal-use app can stay in testing mode |
+| Google Calendar OAuth verification friction (restricted scopes) | `calendar.events` plus read-only `calendar.calendarlist.readonly`, asked for at link time rather than at sign-in; personal-use app can stay in testing mode. See the M5 notes |
 | 100% coverage slows iteration | Pure-function-heavy design keeps it tractable; hand-written models are boilerplate-tested via shared round-trip helpers |
 | Hand-written model boilerplate drifts (copyWith missing a field, asymmetric toMap/fromMap) | Mandatory round-trip + copyWith-every-field tests per model; a shared test helper makes adding them cheap |
 | Two-writer conflicts | Firestore last-write-wins is fine for this data shape; hangouts are append-only |

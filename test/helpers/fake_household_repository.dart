@@ -26,6 +26,13 @@ class FakeHouseholdRepository implements HouseholdRepository {
   /// Arguments of every [joinWithInviteCode] call, oldest first.
   final joinCalls = <({String code, AuthUser user, String displayName})>[];
 
+  /// Arguments of every [linkCalendar] call, oldest first.
+  final linkCalls =
+      <({String householdId, String calendarId, String calendarName})>[];
+
+  /// Household ids passed to [unlinkCalendar], oldest first.
+  final unlinkCalls = <String>[];
+
   /// Failure to return from the next create or join, instead of succeeding.
   /// Cleared once consumed.
   Failure? nextFailure;
@@ -113,6 +120,49 @@ class FakeHouseholdRepository implements HouseholdRepository {
       ],
     ),
   );
+
+  @override
+  Future<Result<void>> linkCalendar({
+    required String householdId,
+    required String calendarId,
+    required String calendarName,
+  }) async {
+    linkCalls.add((
+      householdId: householdId,
+      calendarId: calendarId,
+      calendarName: calendarName,
+    ));
+    await gate?.future;
+    final failure = _takeFailure();
+    if (failure != null) return Err(failure);
+
+    final household = households[householdId];
+    if (household == null) {
+      return const Err(NotFoundFailure('No such household.'));
+    }
+    households[householdId] = household.copyWith(
+      calendarId: calendarId,
+      calendarName: calendarName,
+    );
+    if (_memberships.hasListener) _memberships.add(null);
+    return const Ok(null);
+  }
+
+  @override
+  Future<Result<void>> unlinkCalendar({required String householdId}) async {
+    unlinkCalls.add(householdId);
+    await gate?.future;
+    final failure = _takeFailure();
+    if (failure != null) return Err(failure);
+
+    final household = households[householdId];
+    if (household == null) {
+      return const Err(NotFoundFailure('No such household.'));
+    }
+    households[householdId] = household.copyWith(clearCalendar: true);
+    if (_memberships.hasListener) _memberships.add(null);
+    return const Ok(null);
+  }
 
   /// Releases the change stream. Register with `addTearDown`.
   Future<void> dispose() => _memberships.close();

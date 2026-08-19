@@ -65,6 +65,7 @@ void main() {
         'HangoutsRoute': '/hangouts/:contactId',
         'HangoutEditorRoute': '/log/:hangoutId',
         'HouseholdRoute': '/household',
+        'CalendarSettingsRoute': '/household/calendar',
         'SignInRoute': '/sign-in',
         'HouseholdOnboardingRoute': '/welcome',
       });
@@ -94,6 +95,7 @@ void main() {
         'HangoutsRoute': 2,
         'HangoutEditorRoute': 2,
         'HouseholdRoute': 2,
+        'CalendarSettingsRoute': 2,
         'SignInRoute': 0,
         'HouseholdOnboardingRoute': 1,
       });

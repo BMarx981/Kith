@@ -54,6 +54,24 @@ abstract interface class GoogleSignInService {
   /// user changing their mind rather than something to report as an error.
   Future<Result<GoogleTokens>> authenticate();
 
+  /// Asks the account to grant [scopes], showing whatever sheet that takes.
+  ///
+  /// Separate from [authenticate] because signing in and handing an app access
+  /// to your calendar are two different decisions, and Google's own guidance
+  /// is to ask for the second one when it is actually needed rather than at
+  /// the door. Answers with an access token carrying the scopes.
+  ///
+  /// A dismissed sheet comes back as `AuthFailureReason.cancelled`, which is
+  /// the user declining rather than something to report as an error.
+  Future<Result<String>> authorizeScopes(List<String> scopes);
+
+  /// An access token for [scopes] if one can be had without asking, else null.
+  ///
+  /// This is what a background call reaches for: it never shows UI, so a
+  /// household that has not authorised the calendar simply gets no token and
+  /// the call that needed it fails as a permission problem.
+  Future<String?> existingAccessToken(List<String> scopes);
+
   /// Forgets the Google account, so the next [authenticate] asks again.
   ///
   /// Signing out of Firebase alone would leave Google's own session standing,

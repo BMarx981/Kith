@@ -52,4 +52,37 @@ abstract interface class PlannedHangoutRepository {
     required String householdId,
     required String plannedHangoutId,
   });
+
+  /// Records that [plannedHangoutId] now owns the calendar event
+  /// [calendarEventId], and confirms it.
+  ///
+  /// Confirmed means exactly one thing in Kith: the plan is on the household's
+  /// calendar. A plan that never made it there stays proposed, which is what
+  /// makes the status worth storing rather than derivable.
+  Future<Result<void>> linkCalendarEvent({
+    required String householdId,
+    required String plannedHangoutId,
+    required String calendarEventId,
+  });
+
+  /// Forgets the calendar event [plannedHangoutId] owned, returning it to
+  /// proposed.
+  ///
+  /// What the sync does when the event has been deleted from the calendar but
+  /// the plan is worth keeping, and what unlinking a calendar leaves behind.
+  Future<Result<void>> unlinkCalendarEvent({
+    required String householdId,
+    required String plannedHangoutId,
+  });
+
+  /// Moves [plannedHangoutId] to [plannedFor].
+  ///
+  /// The calendar half of a two-way sync: somebody dragging the event to
+  /// another day in their calendar app is a change to the plan, and this is
+  /// how it comes back. Kith itself offers no way to edit a plan's day.
+  Future<Result<void>> reschedulePlan({
+    required String householdId,
+    required String plannedHangoutId,
+    required DateTime plannedFor,
+  });
 }

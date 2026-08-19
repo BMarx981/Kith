@@ -222,6 +222,53 @@ class FirestoreHouseholdRepository implements HouseholdRepository {
         }),
   );
 
+  @override
+  Future<Result<void>> linkCalendar({
+    required String householdId,
+    required String calendarId,
+    required String calendarName,
+  }) async {
+    final id = calendarId.trim();
+    final name = calendarName.trim();
+    final invalid = _validateCalendar(id, name);
+    if (invalid != null) return Err(invalid);
+
+    return FirestoreErrors.guard(() async {
+      await _firestore.collection(householdsPath).doc(householdId).update({
+        'calendarId': id,
+        'calendarName': name,
+      });
+      return const Ok(null);
+    });
+  }
+
+  @override
+  Future<Result<void>> unlinkCalendar({
+    required String householdId,
+  }) => FirestoreErrors.guard(() async {
+    await _firestore.collection(householdsPath).doc(householdId).update({
+      'calendarId': null,
+      'calendarName': null,
+    });
+    return const Ok(null);
+  });
+
+  /// Why [calendarId] and [calendarName] cannot be stored, or null when they
+  /// can.
+  ///
+  /// Mirrors the bounds in `firestore.rules`, so a document the backend would
+  /// refuse is caught before the round trip.
+  static Failure? _validateCalendar(String calendarId, String calendarName) {
+    if (calendarId.isEmpty || calendarName.isEmpty) {
+      return const ValidationFailure('Choose a calendar to write plans to.');
+    }
+    if (calendarId.length > Household.maxCalendarIdLength ||
+        calendarName.length > Household.maxCalendarNameLength) {
+      return const ValidationFailure('That calendar cannot be linked.');
+    }
+    return null;
+  }
+
   /// Claims an unused document in the invite code index.
   ///
   /// Returns null when every attempt collided. The read and the write are in

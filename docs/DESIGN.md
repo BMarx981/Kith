@@ -195,12 +195,17 @@ one file.
 | `hangout` | `calendar-check` | A logged hangout, and the timeline of them |
 | `date` | `calendar-blank` | The day a hangout happened on |
 | `history` | `clock-counter-clockwise` | One contact's hangout history |
+| `calendar` | `calendar-blank` | The household's linked calendar, and a plan that has reached it |
 
 Rules:
 
 - Only icons actually rendered get a constant. The bundled face carries the
   whole Phosphor set and release builds tree-shake it to the codepoints named,
   so adding one is a line in `kith_icons.dart`, never a new asset.
+- Two constants may share a glyph when they name two jobs. `calendar` is
+  `date`, because a day and the calendar it sits on are the same picture, and
+  the rule above is about what a constant is *called*, not about how many
+  codepoints get bundled.
 - One weight. Light is prettier at 48px but goes frail at the 20px of the
   password toggle, and a set that changes weight by size stops reading as a set.
 - Never a filled icon to mean emphasis. Emphasis is colour and space, the same

@@ -5,7 +5,9 @@ import 'package:kith/core/result/result.dart';
 import 'package:kith/data/models/contact.dart';
 import 'package:kith/data/models/planned_hangout.dart';
 import 'package:kith/features/auth/application/auth_providers.dart';
+import 'package:kith/features/calendar/application/calendar_providers.dart';
 import 'package:kith/features/contacts/application/save_state.dart';
+import 'package:kith/features/suggestions/application/plan_outcome.dart';
 import 'package:kith/features/suggestions/application/suggestion_providers.dart';
 import 'package:kith/features/suggestions/domain/snooze_horizon.dart';
 
@@ -26,21 +28,51 @@ class SuggestionActionController extends Notifier<SaveState> {
     return const SaveState();
   }
 
-  /// Records an intent to see [contactId] on [plannedFor].
+  /// Records an intent to see [contactId] on [plannedFor], and puts it on the
+  /// household's calendar when one is linked.
   ///
-  /// Returns the stored plan, or null if the write was refused.
-  Future<PlannedHangout?> plan({
+  /// [title] is what the event is called, which is the contact's name: an
+  /// event reading "Marcus" in a shared calendar says everything the household
+  /// needs, and the frame shows it as-is.
+  ///
+  /// Returns what came of it, or null if the plan itself was refused. A plan
+  /// that was stored but could not be published still comes back: the
+  /// arrangement stands either way, and the card says which happened.
+  Future<PlanOutcome?> plan({
     required String householdId,
     required String contactId,
+    required String title,
     required DateTime plannedFor,
-  }) => _submit(
-    (createdBy) => ref.read(plannedHangoutRepositoryProvider).planHangout(
-      householdId: householdId,
-      contactIds: [contactId],
-      plannedFor: plannedFor,
-      createdBy: createdBy,
-    ),
-  );
+  }) async {
+    final stored = await _submit(
+      (createdBy) => ref.read(plannedHangoutRepositoryProvider).planHangout(
+        householdId: householdId,
+        contactIds: [contactId],
+        plannedFor: plannedFor,
+        createdBy: createdBy,
+      ),
+    );
+    if (stored == null) return null;
+
+    final calendarId = ref.read(householdCalendarIdProvider(householdId));
+    if (calendarId == null) return PlanOutcome(plan: stored);
+
+    final published = await ref
+        .read(calendarSyncServiceProvider)
+        .addPlanToCalendar(
+          householdId: householdId,
+          calendarId: calendarId,
+          plan: stored,
+          title: title,
+        );
+    return switch (published) {
+      Ok() => PlanOutcome(plan: stored, isOnCalendar: true),
+      Err(:final failure) => PlanOutcome(
+        plan: stored,
+        calendarFailure: failure,
+      ),
+    };
+  }
 
   /// Stops suggesting [contact] for as long as [horizon] says.
   ///
@@ -63,27 +95,43 @@ class SuggestionActionController extends Notifier<SaveState> {
     ),
   );
 
-  /// Drops the plan [plannedHangoutId], which is how an undo is spelled.
+  /// Drops [plan], which is how an undo is spelled.
   ///
-  /// Returns whether it worked. Takes no author: removing a plan is not an
-  /// authored act, and either partner may undo the other's.
+  /// Takes the plan rather than its id because a plan on the calendar owns an
+  /// event, and dropping one without the other would leave the household an
+  /// arrangement nobody in the app can cancel.
+  ///
+  /// The event goes first and the plan goes second. Returns whether the plan
+  /// was cancelled, which is what was asked for: an event that could not be
+  /// removed leaves a failure in the state and a stray entry the household can
+  /// delete in their own calendar, rather than a plan that will not go away.
+  ///
+  /// Takes no author: removing a plan is not an authored act, and either
+  /// partner may undo the other's.
   Future<bool> cancel({
     required String householdId,
-    required String plannedHangoutId,
+    required PlannedHangout plan,
   }) async {
     if (state.isSubmitting) return false;
     state = state.copyWith(isSubmitting: true, clearFailure: true);
+
+    Failure? calendarFailure;
+    final calendarId = ref.read(householdCalendarIdProvider(householdId));
+    if (calendarId != null) {
+      final removed = await ref
+          .read(calendarSyncServiceProvider)
+          .removePlanFromCalendar(calendarId: calendarId, plan: plan);
+      calendarFailure = removed.failureOrNull;
+    }
+
     final result = await ref
         .read(plannedHangoutRepositoryProvider)
-        .cancelPlan(
-          householdId: householdId,
-          plannedHangoutId: plannedHangoutId,
-        );
+        .cancelPlan(householdId: householdId, plannedHangoutId: plan.id);
     if (result case Err(:final failure)) {
       state = state.copyWith(isSubmitting: false, failure: failure);
       return false;
     }
-    state = const SaveState();
+    state = SaveState(failure: calendarFailure);
     return true;
   }
 

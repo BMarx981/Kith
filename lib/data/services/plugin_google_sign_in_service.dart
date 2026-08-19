@@ -53,6 +53,33 @@ class PluginGoogleSignInService implements GoogleSignInService {
   }
 
   @override
+  Future<Result<String>> authorizeScopes(List<String> scopes) async {
+    try {
+      await _ensureInitialized();
+      final authorization = await GoogleSignIn.instance.authorizationClient
+          .authorizeScopes(scopes);
+      return Ok(authorization.accessToken);
+    } on GoogleSignInException catch (error) {
+      return Err(googleSignInFailure(error));
+    }
+  }
+
+  @override
+  Future<String?> existingAccessToken(List<String> scopes) async {
+    try {
+      await _ensureInitialized();
+      final authorization = await GoogleSignIn.instance.authorizationClient
+          .authorizationForScopes(scopes);
+      return authorization?.accessToken;
+    } on GoogleSignInException {
+      // A silent call has nobody to tell. Answering null says the same thing
+      // to the caller as a scope that was never granted, which is what the
+      // sink turns into a permission failure.
+      return null;
+    }
+  }
+
+  @override
   Future<void> signOut() async {
     // A sign-out before the first sign-in has nothing to undo, and
     // initialising just to tear down would be a platform round trip for

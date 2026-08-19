@@ -12,8 +12,11 @@ import 'package:kith/data/models/hangout.dart';
 import 'package:kith/data/models/planned_hangout.dart';
 import 'package:kith/data/models/planned_hangout_status.dart';
 import 'package:kith/data/models/relationship_type.dart';
+import 'package:kith/data/services/calendar_directory.dart';
 import 'package:kith/features/auth/application/auth_providers.dart';
 import 'package:kith/features/auth/presentation/sign_in_screen.dart';
+import 'package:kith/features/calendar/application/calendar_providers.dart';
+import 'package:kith/features/calendar/presentation/calendar_settings_screen.dart';
 import 'package:kith/features/contacts/application/contact_providers.dart';
 import 'package:kith/features/contacts/domain/cadence.dart';
 import 'package:kith/features/contacts/presentation/contact_editor_screen.dart';
@@ -29,7 +32,9 @@ import 'package:kith/features/suggestions/application/suggestion_providers.dart'
 import 'package:kith/features/suggestions/presentation/home_screen.dart';
 
 import '../helpers/fake_auth_service.dart';
+import '../helpers/fake_calendar_directory.dart';
 import '../helpers/fake_contact_repository.dart';
+import '../helpers/fake_google_sign_in_service.dart';
 import '../helpers/fake_hangout_repository.dart';
 import '../helpers/fake_household_repository.dart';
 import '../helpers/fake_planned_hangout_repository.dart';
@@ -62,6 +67,8 @@ void main() {
   late FakeRelationshipTypeRepository labels;
   late FakeHangoutRepository hangouts;
   late FakePlannedHangoutRepository plans;
+  late FakeGoogleSignInService google;
+  late FakeCalendarDirectory calendars;
 
   setUp(() {
     auth = FakeAuthService(initialUser: owner);
@@ -76,6 +83,15 @@ void main() {
     addTearDown(hangouts.dispose);
     plans = FakePlannedHangoutRepository();
     addTearDown(plans.dispose);
+    // A member who has already granted the calendar scopes, so the picker is
+    // the state worth pinning rather than the connect button.
+    google = FakeGoogleSignInService()..token = 'granted-earlier';
+    calendars = FakeCalendarDirectory()
+      ..calendars = const [
+        CalendarListing(id: 'cal-me', name: 'Brian', isPrimary: true),
+        CalendarListing(id: 'cal-1', name: 'Hangouts'),
+        CalendarListing(id: 'cal-2', name: 'School term dates'),
+      ];
   });
 
   List<Override> overrides() => [
@@ -86,6 +102,8 @@ void main() {
     relationshipTypeRepositoryProvider.overrideWithValue(labels),
     hangoutRepositoryProvider.overrideWithValue(hangouts),
     plannedHangoutRepositoryProvider.overrideWithValue(plans),
+    googleSignInServiceProvider.overrideWithValue(google),
+    calendarDirectoryProvider.overrideWithValue(calendars),
     // Pinned, because every gauge in these surfaces is a function of now.
     clockProvider.overrideWithValue(Clock.fixed(seeded)),
   ];
@@ -250,14 +268,35 @@ void main() {
       displayName: 'Partner',
     );
     // The fake creates households without a code; the invite card is one of
-    // the surfaces worth pinning, so give it one.
+    // the surfaces worth pinning, so give it one, and a calendar with it.
     repository.households.updateAll(
       (_, household) => household.copyWith(
         inviteCode: InviteCode.parse('KH7RQ2').valueOrNull,
+        calendarId: 'cal-1',
+        calendarName: 'Hangouts',
       ),
     );
 
     await pumpSurface(tester, const HouseholdScreen(), theme: theme);
+  });
+
+  goldenTest('the calendar picker, with one linked', 'calendar', (
+    tester,
+    theme,
+  ) async {
+    await repository.createHousehold(
+      name: 'The Marx house',
+      owner: owner,
+      displayName: 'Brian',
+    );
+    repository.households.updateAll(
+      (_, household) => household.copyWith(
+        calendarId: 'cal-1',
+        calendarName: 'Hangouts',
+      ),
+    );
+
+    await pumpSurface(tester, const CalendarSettingsScreen(), theme: theme);
   });
 
   goldenTest('the contact list, filtered and sorted', 'contacts', (

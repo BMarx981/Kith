@@ -9,10 +9,14 @@ import 'package:kith/core/clock/clock_provider.dart';
 import 'package:kith/core/result/failure.dart';
 import 'package:kith/core/time/calendar_day.dart';
 import 'package:kith/data/models/planned_hangout.dart';
+import 'package:kith/data/models/planned_hangout_status.dart';
+import 'package:kith/features/calendar/application/calendar_sync_controller.dart';
+import 'package:kith/features/calendar/presentation/calendar_failure_message.dart';
 import 'package:kith/features/contacts/application/contact_providers.dart';
 import 'package:kith/features/hangouts/application/hangout_providers.dart';
 import 'package:kith/features/hangouts/domain/day_label.dart';
 import 'package:kith/features/household/application/household_providers.dart';
+import 'package:kith/features/suggestions/application/plan_outcome.dart';
 import 'package:kith/features/suggestions/application/suggestion_action_controller.dart';
 import 'package:kith/features/suggestions/application/suggestion_providers.dart';
 import 'package:kith/features/suggestions/domain/snooze_horizon.dart';
@@ -86,13 +90,57 @@ class HomeScreen extends ConsumerWidget {
   }
 }
 
-class _ReconnectBody extends ConsumerWidget {
+/// The section itself, and the calendar poll that runs behind it.
+///
+/// The poll lives here rather than in the app shell because this is the screen
+/// the app opens on and the only one that shows plans: "on app open" and "when
+/// the Reconnect list is in front of you" are the same moment.
+class _ReconnectBody extends ConsumerStatefulWidget {
   const _ReconnectBody({required this.householdId});
 
   final String householdId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_ReconnectBody> createState() => _ReconnectBodyState();
+}
+
+class _ReconnectBodyState extends ConsumerState<_ReconnectBody> {
+  late final AppLifecycleListener _lifecycle;
+  late final ProviderSubscription<AsyncValue<List<PlannedHangout>>>
+  _plansArrived;
+
+  @override
+  void initState() {
+    super.initState();
+    // Coming back to the app is the other half of "on open": an event moved on
+    // a laptop while the phone sat in a pocket is exactly what the poll is for.
+    _lifecycle = AppLifecycleListener(onResume: _sync);
+    // The first pass waits for the plans to arrive rather than running now:
+    // there is nothing to reconcile until the stream has said what the
+    // household has planned.
+    _plansArrived = ref.listenManual(
+      plannedHangoutsProvider(widget.householdId),
+      (previous, next) {
+        if (previous?.hasValue ?? false) return;
+        if (next.hasValue) _sync();
+      },
+      fireImmediately: true,
+    );
+  }
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    _plansArrived.close();
+    super.dispose();
+  }
+
+  void _sync() =>
+      unawaited(ref.read(calendarSyncControllerProvider.notifier).syncNow());
+
+  @override
+  Widget build(BuildContext context) {
+    final householdId = widget.householdId;
     final contacts = ref.watch(contactsProvider(householdId));
     // The timeline and the plans are watched here, not for what they hold, but
     // so the section can tell "nothing to do" from "not loaded yet": the
@@ -100,8 +148,9 @@ class _ReconnectBody extends ConsumerWidget {
     // empty Reconnect section shown too early is a claim rather than a wait.
     final hangouts = ref.watch(hangoutsProvider(householdId));
     final plans = ref.watch(plannedHangoutsProvider(householdId));
+    final syncFailure = ref.watch(calendarSyncControllerProvider).failure;
 
-    return switch ((contacts, hangouts, plans)) {
+    final body = switch ((contacts, hangouts, plans)) {
       (AsyncError(:final error), _, _) ||
       (_, AsyncError(:final error), _) ||
       (_, _, AsyncError(:final error)) => _Message(_messageFor(error)),
@@ -112,6 +161,16 @@ class _ReconnectBody extends ConsumerWidget {
       ),
       _ => const Center(child: CircularProgressIndicator()),
     };
+
+    // The plans on screen are Kith's own and are worth showing either way, so
+    // a calendar that could not be read is said quietly above them rather than
+    // replacing them.
+    return Column(
+      children: [
+        if (syncFailure != null) _SyncNotice(failure: syncFailure),
+        Expanded(child: body),
+      ],
+    );
   }
 
   /// Streams surface domain failures; anything else is a bug rather than a
@@ -265,22 +324,42 @@ class _SuggestionCard extends ConsumerWidget {
     );
     if (picked == null || !context.mounted) return;
 
-    final plan = await ref
+    final outcome = await ref
         .read(suggestionActionControllerProvider.notifier)
         .plan(
           householdId: householdId,
           contactId: suggestion.contact.id,
+          title: suggestion.contact.name,
           plannedFor: CalendarDay.of(picked),
         );
     if (!context.mounted) return;
     _report(
       context,
       ref,
-      plan: plan,
-      done:
-          'Planned with ${suggestion.contact.name} for '
-          '${DayLabel.of(CalendarDay.of(picked), today: today)}.',
+      plan: outcome?.plan,
+      done: _plannedMessage(
+        outcome,
+        day: DayLabel.of(CalendarDay.of(picked), today: today),
+      ),
     );
+  }
+
+  /// What the snackbar says about a plan that was made.
+  ///
+  /// Says the arrangement first, because that is what the user asked for and
+  /// it stands whatever the calendar did. What went wrong is said in the
+  /// calendar's own words rather than the plan's: a refusal here is Google's,
+  /// and telling somebody they may not change this household would send them
+  /// looking in the wrong place.
+  String _plannedMessage(PlanOutcome? outcome, {required String day}) {
+    final planned = 'Planned with ${suggestion.contact.name} for $day.';
+    return switch (outcome) {
+      null => '',
+      PlanOutcome(isOnCalendar: true) => '$planned Added to the calendar.',
+      PlanOutcome(calendarFailure: final failure?) =>
+        '$planned ${calendarFailureMessage(failure)}',
+      _ => planned,
+    };
   }
 
   /// Defers the suggestion for as long as [horizon] says.
@@ -347,10 +426,7 @@ class _SuggestionCard extends ConsumerWidget {
           label: 'Undo',
           onPressed: () {
             unawaited(
-              controller.cancel(
-                householdId: householdId,
-                plannedHangoutId: plan.id,
-              ),
+              controller.cancel(householdId: householdId, plan: plan),
             );
           },
         ),
@@ -373,8 +449,42 @@ class _PlanChip extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final today = CalendarDay.of(ref.watch(nowProvider));
+    final day = DayLabel.of(plan.plannedFor, today: today);
+    // Confirmed means one thing in Kith: the plan is on the household's
+    // calendar, and so on the frame.
+    final onCalendar = plan.status == PlannedHangoutStatus.confirmed;
     return Chip(
-      label: Text('Planned ${DayLabel.of(plan.plannedFor, today: today)}'),
+      avatar: onCalendar
+          ? const Icon(KithIcons.calendar, size: KithSpacing.md)
+          : null,
+      label: Text('Planned $day'),
+    );
+  }
+}
+
+/// Says that the calendar could not be read, without taking the screen over.
+class _SyncNotice extends StatelessWidget {
+  const _SyncNotice({required this.failure});
+
+  final Failure failure;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      width: double.infinity,
+      color: theme.colorScheme.surfaceContainerHighest,
+      padding: const EdgeInsets.symmetric(
+        horizontal: KithSpacing.md,
+        vertical: KithSpacing.xs,
+      ),
+      child: Text(
+        'Plans may be out of step with the calendar. '
+        '${calendarFailureMessage(failure)}',
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+      ),
     );
   }
 }

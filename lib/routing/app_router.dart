@@ -7,6 +7,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kith/features/auth/application/auth_providers.dart';
 import 'package:kith/features/auth/presentation/sign_in_screen.dart';
+import 'package:kith/features/calendar/presentation/calendar_settings_screen.dart';
 import 'package:kith/features/contacts/presentation/contact_editor_screen.dart';
 import 'package:kith/features/contacts/presentation/contacts_screen.dart';
 import 'package:kith/features/contacts/presentation/relationship_types_screen.dart';
@@ -84,6 +85,13 @@ class AppRouter extends RootStackRouter {
     AutoRoute(
       page: HouseholdRoute.page,
       path: '/household',
+      guards: [authGuard, householdGuard],
+    ),
+    AutoRoute(
+      page: CalendarSettingsRoute.page,
+      // Under /household because the linked calendar is household property,
+      // even though the Google grant behind it belongs to one member.
+      path: '/household/calendar',
       guards: [authGuard, householdGuard],
     ),
     AutoRoute(page: SignInRoute.page, path: '/sign-in'),

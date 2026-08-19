@@ -11,6 +11,22 @@
 part of 'app_router.dart';
 
 /// generated route for
+/// [CalendarSettingsScreen]
+class CalendarSettingsRoute extends PageRouteInfo<void> {
+  const CalendarSettingsRoute({List<PageRouteInfo>? children})
+    : super(CalendarSettingsRoute.name, initialChildren: children);
+
+  static const String name = 'CalendarSettingsRoute';
+
+  static PageInfo page = PageInfo(
+    name,
+    builder: (data) {
+      return const CalendarSettingsScreen();
+    },
+  );
+}
+
+/// generated route for
 /// [ContactEditorScreen]
 class ContactEditorRoute extends PageRouteInfo<ContactEditorRouteArgs> {
   ContactEditorRoute({

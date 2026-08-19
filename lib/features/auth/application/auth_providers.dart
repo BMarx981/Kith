@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kith/data/models/auth_user.dart';
 import 'package:kith/data/services/auth_service.dart';
+import 'package:kith/data/services/google_sign_in_service.dart';
 
 /// The app's [AuthService].
 ///
@@ -11,6 +12,19 @@ final authServiceProvider = Provider<AuthService>((ref) {
   throw UnimplementedError(
     'authServiceProvider must be overridden with an AuthService '
     'implementation before it is read.',
+  );
+});
+
+/// The app's [GoogleSignInService].
+///
+/// The same instance the auth service signs in through, so asking for the
+/// calendar scope later happens against the account already signed in rather
+/// than through a second session of its own. Deliberately has no default, for
+/// the same reason [authServiceProvider] has none.
+final googleSignInServiceProvider = Provider<GoogleSignInService>((ref) {
+  throw UnimplementedError(
+    'googleSignInServiceProvider must be overridden with a '
+    'GoogleSignInService implementation before it is read.',
   );
 });
 

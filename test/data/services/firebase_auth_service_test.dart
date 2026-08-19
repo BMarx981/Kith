@@ -538,4 +538,14 @@ class _StubGoogleSignInService implements GoogleSignInService {
     signOutCalls++;
     if (signOutThrows) throw StateError('Google sign-out failed.');
   }
+
+  /// Signing in never asks for a scope; the calendar does, and it is tested
+  /// where it lives.
+  @override
+  Future<Result<String>> authorizeScopes(List<String> scopes) =>
+      throw UnimplementedError();
+
+  @override
+  Future<String?> existingAccessToken(List<String> scopes) =>
+      throw UnimplementedError();
 }
