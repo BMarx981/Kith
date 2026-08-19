@@ -33,6 +33,10 @@ class FakeHouseholdRepository implements HouseholdRepository {
   /// Household ids passed to [unlinkCalendar], oldest first.
   final unlinkCalls = <String>[];
 
+  /// Arguments of every [setDigestPreference] call, oldest first.
+  final digestCalls =
+      <({String householdId, String uid, int? digestDay, int digestHour})>[];
+
   /// Failure to return from the next create or join, instead of succeeding.
   /// Cleared once consumed.
   Failure? nextFailure;
@@ -160,6 +164,37 @@ class FakeHouseholdRepository implements HouseholdRepository {
       return const Err(NotFoundFailure('No such household.'));
     }
     households[householdId] = household.copyWith(clearCalendar: true);
+    if (_memberships.hasListener) _memberships.add(null);
+    return const Ok(null);
+  }
+
+  @override
+  Future<Result<void>> setDigestPreference({
+    required String householdId,
+    required String uid,
+    required int? digestDay,
+    required int digestHour,
+  }) async {
+    digestCalls.add((
+      householdId: householdId,
+      uid: uid,
+      digestDay: digestDay,
+      digestHour: digestHour,
+    ));
+    await gate?.future;
+    final failure = _takeFailure();
+    if (failure != null) return Err(failure);
+
+    final roster = members[householdId];
+    final index = roster?.indexWhere((member) => member.id == uid) ?? -1;
+    if (roster == null || index < 0) {
+      return const Err(NotFoundFailure('No such member.'));
+    }
+    roster[index] = roster[index].copyWith(
+      digestDay: digestDay,
+      digestHour: digestHour,
+      clearDigestDay: digestDay == null,
+    );
     if (_memberships.hasListener) _memberships.add(null);
     return const Ok(null);
   }

@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:kith/app/app.dart';
 import 'package:kith/app/bootstrap.dart';
+import 'package:kith/data/services/flutter_device_contact_directory.dart';
+import 'package:kith/data/services/local_notification_scheduler.dart';
 import 'package:kith/data/services/plugin_google_sign_in_service.dart';
 import 'package:kith/firebase_options.dart';
 
@@ -22,6 +24,8 @@ Future<void> main() async {
         // a household links a calendar, not at the door.
         googleSignIn: PluginGoogleSignInService(),
         httpClient: http.Client(),
+        scheduler: LocalNotificationScheduler(),
+        deviceContacts: FlutterDeviceContactDirectory(),
       ),
       child: const KithApp(),
     ),

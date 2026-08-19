@@ -29,6 +29,12 @@ class FakeContactRepository implements ContactRepository {
   /// once consumed.
   Failure? nextFailure;
 
+  /// How many creates succeed before the rest are refused, or null for no
+  /// limit. Lets a test drive a partial import, which [nextFailure] cannot:
+  /// it is consumed once, and a run that fails halfway needs the failure to
+  /// arrive on a later call than the first.
+  int? createFailureAfter;
+
   /// Completes before the next write returns, when set. Lets a test observe
   /// the form mid-request.
   Completer<void>? gate;
@@ -55,6 +61,9 @@ class FakeContactRepository implements ContactRepository {
   }) async {
     createCalls.add((householdId: householdId, draft: draft));
     await gate?.future;
+    if (createFailureAfter case final limit? when createCalls.length > limit) {
+      return const Err(NetworkFailure('The write did not land.'));
+    }
     final failure = _takeFailure();
     if (failure != null) return Err(failure);
 

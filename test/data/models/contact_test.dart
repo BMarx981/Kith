@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kith/data/models/contact.dart';
 import 'package:kith/data/models/contact_priority.dart';
+import 'package:kith/features/contacts/domain/birthday.dart';
 import 'package:kith/features/contacts/domain/cadence.dart';
 
 import '../../helpers/model_test_helpers.dart';
@@ -19,6 +20,7 @@ void main() {
     address: '12 Elm Street',
     guardianName: 'Dana',
     guardianPhone: '555-0199',
+    birthday: const Birthday(month: 3, day: 14, year: 1988),
     notes: 'Allergic to cats.',
     tags: const ['soccer', 'school'],
     createdAt: createdAt,
@@ -199,6 +201,19 @@ void main() {
             field: 'guardianPhone (cleared)',
             mutate: (c) => c.copyWith(clearGuardianPhone: true),
             read: (c) => c.guardianPhone,
+            expected: null,
+          ),
+          CopyWithCase(
+            field: 'birthday',
+            mutate: (c) =>
+                c.copyWith(birthday: const Birthday(month: 7, day: 4)),
+            read: (c) => c.birthday,
+            expected: const Birthday(month: 7, day: 4),
+          ),
+          CopyWithCase(
+            field: 'birthday (cleared)',
+            mutate: (c) => c.copyWith(clearBirthday: true),
+            read: (c) => c.birthday,
             expected: null,
           ),
           CopyWithCase(

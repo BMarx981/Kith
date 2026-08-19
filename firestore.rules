@@ -142,9 +142,21 @@ service cloud.firestore {
 
       // ---- households/{hid}/members/{uid} --------------------------------
 
+      // digestDay and digestHour are the member's own weekly-digest
+      // preference. Optional and absent on every member written before M6, so
+      // they are allowed but never required. digestDay is a Dart weekday,
+      // Monday being 1, or null for no digest at all.
+      function isOptionalDigest(data) {
+        return (!('digestDay' in data) || data.digestDay == null ||
+            (data.digestDay is int && data.digestDay >= 1 && data.digestDay <= 7)) &&
+          (!('digestHour' in data) || data.digestHour == null ||
+            (data.digestHour is int && data.digestHour >= 0 && data.digestHour <= 23));
+      }
+
       function isValidMember(uid, data, extraKeys) {
         return data.keys().hasOnly(
-            ['id', 'displayName', 'email', 'role', 'joinedAt', 'photoUrl'].concat(extraKeys)) &&
+            ['id', 'displayName', 'email', 'role', 'joinedAt', 'photoUrl',
+             'digestDay', 'digestHour'].concat(extraKeys)) &&
           data.keys().hasAll(
             ['id', 'displayName', 'email', 'role', 'joinedAt', 'photoUrl'].concat(extraKeys)) &&
           data.id == uid &&
@@ -152,7 +164,8 @@ service cloud.firestore {
           isBoundedString(data.email, 320) &&
           data.role in ['owner', 'member'] &&
           isEpochMillis(data.joinedAt) &&
-          (data.photoUrl == null || isBoundedString(data.photoUrl, 2048));
+          (data.photoUrl == null || isBoundedString(data.photoUrl, 2048)) &&
+          isOptionalDigest(data);
       }
 
       match /members/{uid} {
@@ -185,7 +198,8 @@ service cloud.firestore {
           (
             (isSelf(uid) && isMember(hid) &&
               request.resource.data.diff(resource.data).affectedKeys()
-                .hasOnly(['displayName', 'email', 'photoUrl'])) ||
+                .hasOnly(['displayName', 'email', 'photoUrl',
+                          'digestDay', 'digestHour'])) ||
             (isOwner(hid) &&
               request.resource.data.diff(resource.data).affectedKeys()
                 .hasOnly(['role']))
@@ -203,10 +217,21 @@ service cloud.firestore {
       // in lib/data/models/contact.dart and the validation the repository
       // runs before the round trip.
 
+      // A birthday, in the two spellings Birthday.wireValue writes:
+      // '1988-03-14' with a year, '--03-14' without one. Optional and absent
+      // on every contact written before M6, so it is allowed but never
+      // required. The shape is checked here; whether the day exists in the
+      // month is the model's job, since rules have no calendar.
+      function isOptionalBirthday(data) {
+        return !('birthday' in data) || data.birthday == null ||
+          (data.birthday is string &&
+            data.birthday.matches('^([0-9]{4}|-)-[0-9]{2}-[0-9]{2}$'));
+      }
+
       function isValidContact(cid, data) {
         return data.keys().hasOnly(['id', 'name', 'relationshipTypeId', 'cadenceDays',
             'priority', 'createdAt', 'updatedAt', 'phone', 'email', 'address',
-            'guardianName', 'guardianPhone', 'notes', 'tags', 'isArchived']) &&
+            'guardianName', 'guardianPhone', 'birthday', 'notes', 'tags', 'isArchived']) &&
           data.keys().hasAll(['id', 'name', 'relationshipTypeId', 'cadenceDays',
             'priority', 'createdAt', 'updatedAt', 'tags', 'isArchived']) &&
           data.id == cid &&
@@ -222,6 +247,7 @@ service cloud.firestore {
           isOptionalString(data, 'address', 200) &&
           isOptionalString(data, 'guardianName', 200) &&
           isOptionalString(data, 'guardianPhone', 200) &&
+          isOptionalBirthday(data) &&
           isOptionalString(data, 'notes', 2000) &&
           data.tags is list && data.tags.size() <= 20 &&
           data.isArchived is bool;

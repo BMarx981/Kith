@@ -9,16 +9,20 @@ import 'package:kith/data/repositories/firestore_hangout_repository.dart';
 import 'package:kith/data/repositories/firestore_household_repository.dart';
 import 'package:kith/data/repositories/firestore_planned_hangout_repository.dart';
 import 'package:kith/data/repositories/firestore_relationship_type_repository.dart';
+import 'package:kith/data/services/device_contact_directory.dart';
 import 'package:kith/data/services/firebase_auth_service.dart';
 import 'package:kith/data/services/google_calendar_directory.dart';
 import 'package:kith/data/services/google_calendar_sink.dart';
 import 'package:kith/data/services/google_sign_in_service.dart';
+import 'package:kith/data/services/notification_scheduler.dart';
 import 'package:kith/features/auth/application/auth_providers.dart';
 import 'package:kith/features/calendar/application/calendar_providers.dart';
 import 'package:kith/features/calendar/domain/calendar_scopes.dart';
+import 'package:kith/features/contacts/application/contact_import_controller.dart';
 import 'package:kith/features/contacts/application/contact_providers.dart';
 import 'package:kith/features/hangouts/application/hangout_providers.dart';
 import 'package:kith/features/household/application/household_providers.dart';
+import 'package:kith/features/notifications/application/notification_providers.dart';
 import 'package:kith/features/suggestions/application/suggestion_providers.dart';
 
 /// Provider overrides that bind the graph to live Firebase and Google
@@ -34,11 +38,17 @@ import 'package:kith/features/suggestions/application/suggestion_providers.dart'
 /// [googleSignIn] does double duty. It is how a member signs in, and it is
 /// where the calendar scopes are granted, so both go through one account
 /// rather than two sessions of the same one.
+/// [scheduler] and [deviceContacts] are the device's notification system and
+/// its address book, and are passed in for the same reason the rest are: under
+/// `flutter test` there is no native side to either, so the test binds fakes
+/// and the entry point binds the plugins.
 List<Override> firebaseOverrides({
   required FirebaseAuth auth,
   required FirebaseFirestore firestore,
   required GoogleSignInService googleSignIn,
   required http.Client httpClient,
+  required NotificationScheduler scheduler,
+  required DeviceContactDirectory deviceContacts,
 }) {
   // Consulted per call rather than held: an access token that expired between
   // two writes is refreshed by asking again, and a member who has not granted
@@ -75,5 +85,7 @@ List<Override> firebaseOverrides({
     plannedHangoutRepositoryProvider.overrideWithValue(
       FirestorePlannedHangoutRepository(firestore),
     ),
+    notificationSchedulerProvider.overrideWithValue(scheduler),
+    deviceContactDirectoryProvider.overrideWithValue(deviceContacts),
   ];
 }

@@ -22,7 +22,7 @@ A shared household app that tracks friends — yours and your kids' — shows ho
 | Entity | Purpose |
 |---|---|
 | Household | The shared container. All data is scoped to it. |
-| Member | An authenticated adult user belonging to a household. |
+| Member | An authenticated adult user belonging to a household. Carries that person's weekly-digest preference. |
 | Contact | A person (or family unit) you track. |
 | RelationshipType | Editable, per-household label list. Seeded: Friend, Family, Neighbor, Child's friend, Coworker. Fully CRUD-able. |
 | Hangout | A logged meetup: date, contacts involved, who from the household attended, note. |
@@ -34,6 +34,7 @@ A shared household app that tracks friends — yours and your kids' — shows ho
 - **Parent/guardian contact** (name + phone) — first-class field, because for a kid's friend the person you actually text is the parent
 - Target cadence: weekly / biweekly / monthly / quarterly / twice-a-year / custom days
 - Priority weight (low/normal/high) — feeds the suggestion ranking
+- Birthday, with the year optional (M6)
 - Notes, tags
 - Archived flag (soft delete)
 
@@ -114,8 +115,10 @@ after making a plan still silences the prompt; otherwise the soonest plan
 speaks for them.
 
 ### Suggestion surfacing
-- Home screen "Reconnect" section (top 3–5)
-- Optional weekly local notification digest ("3 people are overdue") — phase 2
+- Home screen "Reconnect" section (top 3–5), with the month's birthdays in a
+  strip above it
+- Optional weekly local notification digest ("3 people are overdue"), per
+  member, off unless asked for — shipped in M6
 
 ---
 
@@ -132,6 +135,8 @@ truth for anything a screen renders.
 - **Hand-written immutable models**: explicit `const` constructors, `toMap`/`fromMap`, `copyWith`, `==`/`hashCode` — all fully unit-tested
 - **Firebase**: Auth (email/password + Google/Apple sign-in), **Cloud Firestore** for shared realtime data. No Storage: contacts carry no photo (decided 2026-08-18 — a coloured initial identifies a row well enough to not be worth an image picker, upload path and a second set of security rules).
 - **clock** package for injectable time (critical for testing the gauge/suggestions)
+- **flutter_local_notifications** + **timezone** + **flutter_timezone** for the
+  weekly digest, and **flutter_contacts** for the address book import (M6)
 
 No freezed, no json_serializable, no riverpod codegen. The only generated files in the repo are AutoRoute's router output.
 
@@ -338,10 +343,100 @@ client looking at the same calendar. Confirming a plan and watching it appear,
 then cancelling it and watching it go, is a run on a device against the
 household's own account.
 
-### M6 — Polish & stretch (optional)
+### M6 — Polish & stretch
 - Weekly digest local notification
 - Contact import from device contacts
 - Birthday tracking on contacts
+
+M6 landed 2026-08-19, all three items. Four notes on what it actually needed.
+
+**A birthday is not a date.** `Contact.birthday` is a `Birthday`, not a
+`DateTime`, because a birthday recurs and its year is optional: you know a
+friend's is the 14th of March long before you know they were born in 1988, and
+a contact whose year had to be guessed to be stored would carry a fabricated
+age forever. It is stored as one string in the two vCard spellings —
+`1988-03-14`, or `--03-14` with no year — so it is one optional field, one
+`clearBirthday` flag and one regex in the rules rather than three integer
+columns. Everything that needs the year answers null without one.
+
+The editor takes it as text with a lenient parser (`14 Mar`, `14 March 1988`,
+`Mar 14`, ISO) rather than a date picker, because a picker cannot express "I
+don't know the year" without a second control. All-numeric slash forms are
+refused: `3/4/1988` is two different days either side of the Atlantic and the
+app carries no locale to break the tie, so asking for the month by name is the
+smaller cost.
+
+A 29th of February lands on the 28th in a common year rather than the 1st of
+March: the birthday belongs to February, and pushing it into the next month
+would move it past a 1 March birthday that comes after it in every leap year.
+
+Upcoming birthdays are a strip above the Reconnect list, not entries in it. The
+engine ranks who you are overdue with; a date that is coming whatever you do
+does not compete with that, and it cannot be planned, snoozed or dismissed,
+which is what a card in the list offers. Capped at three so it stays a
+heads-up.
+
+**The digest is a snapshot, rescheduled on open.** The weekly digest is a
+one-shot local notification carrying who is overdue *now*, and the app
+reschedules it every time it opens. A repeating notification would keep
+announcing whatever was true the week it was set up, and a household that has
+since seen everybody would be told for months that three people are overdue.
+The cost is real and worth naming: a member who never opens the app gets one
+digest and then silence, because there is nobody to recompute the next one. The
+alternative is a stale nudge repeating forever, and a correct fix is a server,
+which the app deliberately does not have. A digest with nothing to say is
+cancelled rather than posted — a notification asking for attention in order to
+report that no attention is needed is worse than none.
+
+**The preference is per member, and lives in Firestore.** `digestDay` (null for
+off) and `digestHour` are fields on `households/{hid}/members/{uid}`. Per
+member because it is personal: one partner may want the nudge and the other may
+not. In Firestore rather than on the device because a member who signs in on a
+second phone should get the digest there too, and because the alternative was a
+fourth dependency for a key-value store. Null day rather than a separate on/off
+flag, so "off" and "no day chosen" cannot disagree. The hour survives being
+switched off, so turning it back on does not lose the time they picked.
+
+Scheduling is inexact on Android. An exact alarm needs `SCHEDULE_EXACT_ALARM`,
+which Android reserves for alarms and timers, and a weekly summary that arrives
+within the hour is the same summary.
+
+**Import reads, and never writes back.** The address book import asks for the
+read permission only; Kith brings people over and never touches the phone's
+contacts. Anybody the household already has is shown greyed and ticked rather
+than hidden — somebody scrolling their address book wants to know why their
+oldest friend is not on the list, and a silently shortened list answers
+nothing. Matching is on name, phone digits or email, any one of which is
+enough; an archived contact counts as already here, because re-importing
+somebody the household deliberately put away would undo the archive by the back
+door.
+
+One label and one cadence for the whole import rather than per person: an
+address book row says nothing about how often you want to see somebody, and
+asking twenty times is how an import stops being one. Both are editable
+afterwards. A birthday event on the row comes across, which is the one place
+the milestone's three items meet.
+
+Writes are one create per contact rather than a batch, because the repository's
+create is what validates a draft and mints an id. An import that fails on the
+fourteenth person has still added thirteen, and the screen says how many landed
+and stays on the list, so retrying does not produce duplicates.
+
+**Four dependencies, and what each is for.** `flutter_local_notifications`
+posts the digest; `timezone` turns "Sunday at 9" into an instant;
+`flutter_timezone` is what asks the phone which zone it is in, which `timezone`
+cannot do and which the notification plugin's own README names as the way to do
+it; `flutter_contacts` reads the address book. Platform config went with them:
+desugaring and two receivers on Android, `POST_NOTIFICATIONS`,
+`RECEIVE_BOOT_COMPLETED` and `READ_CONTACTS`, the notification-centre delegate
+in `AppDelegate.swift`, and `NSContactsUsageDescription`.
+
+**The gate is a device check**, as M5's was. Everything below it is proven
+headlessly: the schedule call against a mocked plugin, the address book read
+against a mocked method channel, the digest text and the birthday maths as pure
+functions, and all three surfaces through the widget tree and the goldens. What
+no test can prove is that a notification actually arrives on Sunday morning and
+that a real address book reads the way a mocked one does.
 
 ---
 

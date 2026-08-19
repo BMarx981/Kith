@@ -13,13 +13,17 @@ import 'package:kith/data/models/planned_hangout.dart';
 import 'package:kith/data/models/planned_hangout_status.dart';
 import 'package:kith/data/models/relationship_type.dart';
 import 'package:kith/data/services/calendar_directory.dart';
+import 'package:kith/data/services/device_contact_directory.dart';
 import 'package:kith/features/auth/application/auth_providers.dart';
 import 'package:kith/features/auth/presentation/sign_in_screen.dart';
 import 'package:kith/features/calendar/application/calendar_providers.dart';
 import 'package:kith/features/calendar/presentation/calendar_settings_screen.dart';
+import 'package:kith/features/contacts/application/contact_import_controller.dart';
 import 'package:kith/features/contacts/application/contact_providers.dart';
+import 'package:kith/features/contacts/domain/birthday.dart';
 import 'package:kith/features/contacts/domain/cadence.dart';
 import 'package:kith/features/contacts/presentation/contact_editor_screen.dart';
+import 'package:kith/features/contacts/presentation/contact_import_screen.dart';
 import 'package:kith/features/contacts/presentation/contacts_screen.dart';
 import 'package:kith/features/contacts/presentation/relationship_types_screen.dart';
 import 'package:kith/features/hangouts/application/hangout_providers.dart';
@@ -28,15 +32,18 @@ import 'package:kith/features/hangouts/presentation/hangouts_screen.dart';
 import 'package:kith/features/household/application/household_providers.dart';
 import 'package:kith/features/household/domain/invite_code.dart';
 import 'package:kith/features/household/presentation/household_screen.dart';
+import 'package:kith/features/notifications/application/notification_providers.dart';
 import 'package:kith/features/suggestions/application/suggestion_providers.dart';
 import 'package:kith/features/suggestions/presentation/home_screen.dart';
 
 import '../helpers/fake_auth_service.dart';
 import '../helpers/fake_calendar_directory.dart';
 import '../helpers/fake_contact_repository.dart';
+import '../helpers/fake_device_contact_directory.dart';
 import '../helpers/fake_google_sign_in_service.dart';
 import '../helpers/fake_hangout_repository.dart';
 import '../helpers/fake_household_repository.dart';
+import '../helpers/fake_notification_scheduler.dart';
 import '../helpers/fake_planned_hangout_repository.dart';
 import '../helpers/fake_relationship_type_repository.dart';
 import '../helpers/load_fonts.dart';
@@ -69,8 +76,12 @@ void main() {
   late FakePlannedHangoutRepository plans;
   late FakeGoogleSignInService google;
   late FakeCalendarDirectory calendars;
+  late FakeNotificationScheduler scheduler;
+  late FakeDeviceContactDirectory deviceContacts;
 
   setUp(() {
+    scheduler = FakeNotificationScheduler();
+    deviceContacts = FakeDeviceContactDirectory();
     auth = FakeAuthService(initialUser: owner);
     addTearDown(auth.dispose);
     repository = FakeHouseholdRepository();
@@ -106,6 +117,8 @@ void main() {
     calendarDirectoryProvider.overrideWithValue(calendars),
     // Pinned, because every gauge in these surfaces is a function of now.
     clockProvider.overrideWithValue(Clock.fixed(seeded)),
+    notificationSchedulerProvider.overrideWithValue(scheduler),
+    deviceContactDirectoryProvider.overrideWithValue(deviceContacts),
   ];
 
   /// Fills the fakes with a household worth looking at: four labels and four
@@ -171,6 +184,14 @@ void main() {
           updatedAt: seeded,
           guardianName: guardian,
           guardianPhone: guardian == null ? null : '555-0199',
+          // Marcus's birthday is four days out, which puts the strip on the
+          // Reconnect surface; Priya's has no year, so the two forms the
+          // editor and the strip can render are both pinned.
+          birthday: switch (index) {
+            0 => const Birthday(month: 8, day: 22, year: 1988),
+            1 => const Birthday(month: 9, day: 3),
+            _ => null,
+          },
           tags: index == 1 ? const ['soccer'] : const [],
           isArchived: archived,
         ),
@@ -276,6 +297,13 @@ void main() {
         calendarName: 'Hangouts',
       ),
     );
+    // The digest turned on, so the pickers are pinned as well as the switch.
+    await repository.setDigestPreference(
+      householdId: 'hid-1',
+      uid: owner.id,
+      digestDay: DateTime.sunday,
+      digestHour: 9,
+    );
 
     await pumpSurface(tester, const HouseholdScreen(), theme: theme);
   });
@@ -319,6 +347,29 @@ void main() {
       const ContactEditorScreen(contactId: 'cid-1'),
       theme: theme,
     );
+  });
+
+  goldenTest('the address book, ready to import', 'contact_import', (
+    tester,
+    theme,
+  ) async {
+    seedContacts();
+    // Marcus is already in Kith, so the list shows him greyed and ticked
+    // rather than leaving him out: both row states are worth pinning.
+    for (final (id, name, phone) in const [
+      ('row-1', 'Ana Reyes', '555-0201'),
+      ('row-2', 'Marcus Bell', null),
+      ('row-3', 'Ben Okafor', '555-0202'),
+      ('row-4', 'Dr Whitfield', null),
+    ]) {
+      deviceContacts.seed(DeviceContact(id: id, name: name, phone: phone));
+    }
+
+    await pumpSurface(tester, const ContactImportScreen(), theme: theme);
+    await tester.tap(find.byKey(ContactImportScreen.readKey));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(ContactImportScreen.rowKey('row-1')));
+    await tester.pumpAndSettle();
   });
 
   goldenTest('the relationship labels, in their order', 'relationship_types', (

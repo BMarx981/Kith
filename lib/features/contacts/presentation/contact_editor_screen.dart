@@ -43,6 +43,9 @@ class ContactEditorScreen extends ConsumerWidget {
   /// Identifies the way through to this contact's hangouts to tests.
   static const historyKey = Key('contactEditor.history');
 
+  /// Identifies the birthday field to tests.
+  static const birthdayKey = Key('contactEditor.birthday');
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final householdId = ref.watch(currentHouseholdIdProvider);
@@ -123,6 +126,7 @@ class _ContactFormState extends ConsumerState<_ContactForm> {
   late final TextEditingController _address;
   late final TextEditingController _guardianName;
   late final TextEditingController _guardianPhone;
+  late final TextEditingController _birthday;
   late final TextEditingController _notes;
   late final TextEditingController _tags;
   late final TextEditingController _customCadence;
@@ -144,6 +148,7 @@ class _ContactFormState extends ConsumerState<_ContactForm> {
     _address = TextEditingController(text: existing?.address ?? '');
     _guardianName = TextEditingController(text: existing?.guardianName ?? '');
     _guardianPhone = TextEditingController(text: existing?.guardianPhone ?? '');
+    _birthday = TextEditingController(text: existing?.birthday?.label ?? '');
     _notes = TextEditingController(text: existing?.notes ?? '');
     _tags = TextEditingController(
       text: ContactFieldValidator.formatTags(existing?.tags ?? const []),
@@ -171,6 +176,7 @@ class _ContactFormState extends ConsumerState<_ContactForm> {
       _address,
       _guardianName,
       _guardianPhone,
+      _birthday,
       _notes,
       _tags,
       _customCadence,
@@ -200,6 +206,7 @@ class _ContactFormState extends ConsumerState<_ContactForm> {
             address: _address.text,
             guardianName: _guardianName.text,
             guardianPhone: _guardianPhone.text,
+            birthday: ContactFieldValidator.parseBirthday(_birthday.text),
             notes: _notes.text,
             tags: ContactFieldValidator.parseTags(_tags.text),
           ),
@@ -338,6 +345,19 @@ class _ContactFormState extends ConsumerState<_ContactForm> {
               keyboardType: TextInputType.phone,
             ),
             const SizedBox(height: KithSpacing.lg),
+            TextFormField(
+              key: ContactEditorScreen.birthdayKey,
+              controller: _birthday,
+              enabled: !state.isSubmitting,
+              textCapitalization: TextCapitalization.words,
+              decoration: const InputDecoration(
+                labelText: 'Birthday',
+                helperText:
+                    'Like 14 Mar, or 14 Mar 1988. The year is optional.',
+              ),
+              validator: ContactFieldValidator.birthday,
+            ),
+            const SizedBox(height: KithSpacing.md),
             TextFormField(
               controller: _tags,
               enabled: !state.isSubmitting,

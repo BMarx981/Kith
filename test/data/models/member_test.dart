@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kith/data/models/member.dart';
 import 'package:kith/data/models/member_role.dart';
+import 'package:kith/features/notifications/domain/digest_schedule.dart';
 
 import '../../helpers/model_test_helpers.dart';
 
@@ -13,6 +14,8 @@ void main() {
     role: MemberRole.owner,
     joinedAt: joinedAt,
     photoUrl: 'https://example.com/a.png',
+    digestDay: DateTime.sunday,
+    digestHour: 18,
   );
 
   group('Member', () {
@@ -21,6 +24,62 @@ void main() {
         sample: sample,
         toMap: (m) => m.toMap(),
         fromMap: Member.fromMap,
+      );
+    });
+
+    test('round-trips with no digest asked for', () {
+      expectMapRoundTrip(
+        sample: sample.copyWith(clearDigestDay: true),
+        toMap: (m) => m.toMap(),
+        fromMap: Member.fromMap,
+      );
+    });
+
+    test('reads a document written before the digest existed', () {
+      final member = Member.fromMap({
+        'id': 'uid-1',
+        'displayName': 'Brian',
+        'email': 'brian@example.com',
+        'role': 'owner',
+        'joinedAt': joinedAt.millisecondsSinceEpoch,
+        'photoUrl': null,
+      });
+
+      expect(member.digestDay, isNull);
+      expect(member.wantsDigest, isFalse);
+      expect(member.digestHour, DigestSchedule.defaultHour);
+    });
+
+    test('reads a nonsense digest day as no digest at all', () {
+      for (final stored in <Object?>[0, 8, -1, 'sunday', 2.5]) {
+        final member = Member.fromMap({
+          ...sample.toMap(),
+          'digestDay': stored,
+        });
+        expect(member.digestDay, isNull, reason: 'stored: $stored');
+      }
+    });
+
+    test('reads an out-of-range digest hour as the default', () {
+      for (final stored in <Object?>[-1, 24, 'nine', null]) {
+        final member = Member.fromMap({
+          ...sample.toMap(),
+          'digestHour': stored,
+        });
+        expect(
+          member.digestHour,
+          DigestSchedule.defaultHour,
+          reason: 'stored: $stored',
+        );
+      }
+    });
+
+    test('wantsDigest follows the day, not the hour', () {
+      expect(sample.wantsDigest, isTrue);
+      expect(sample.copyWith(clearDigestDay: true).wantsDigest, isFalse);
+      expect(
+        sample.copyWith(clearDigestDay: true, digestHour: 20).digestHour,
+        20,
       );
     });
 
@@ -96,6 +155,24 @@ void main() {
             mutate: (m) => m.copyWith(clearPhotoUrl: true),
             read: (m) => m.photoUrl,
             expected: null,
+          ),
+          CopyWithCase(
+            field: 'digestDay',
+            mutate: (m) => m.copyWith(digestDay: DateTime.friday),
+            read: (m) => m.digestDay,
+            expected: DateTime.friday,
+          ),
+          CopyWithCase(
+            field: 'digestDay (cleared)',
+            mutate: (m) => m.copyWith(clearDigestDay: true),
+            read: (m) => m.digestDay,
+            expected: null,
+          ),
+          CopyWithCase(
+            field: 'digestHour',
+            mutate: (m) => m.copyWith(digestHour: 7),
+            read: (m) => m.digestHour,
+            expected: 7,
           ),
         ],
       );

@@ -33,6 +33,9 @@ class ContactsScreen extends ConsumerWidget {
   /// Identifies the way through to the relationship labels to tests.
   static const labelsKey = Key('contacts.labels');
 
+  /// Identifies the way through to the address book import to tests.
+  static const importKey = Key('contacts.import');
+
   /// Identifies the add-a-contact button to tests.
   static const addKey = Key('contacts.add');
 
@@ -55,6 +58,12 @@ class ContactsScreen extends ConsumerWidget {
               for (final sort in ContactSort.values)
                 PopupMenuItem(value: sort, child: Text(sort.label)),
             ],
+          ),
+          IconButton(
+            key: importKey,
+            onPressed: () => context.router.push(const ContactImportRoute()),
+            icon: const Icon(KithIcons.importContacts),
+            tooltip: 'Import from contacts',
           ),
           IconButton(
             key: labelsKey,

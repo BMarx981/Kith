@@ -1,9 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/misc.dart' show StreamProviderFamily;
+import 'package:flutter_riverpod/misc.dart'
+    show ProviderFamily, StreamProviderFamily;
+import 'package:kith/core/clock/clock_provider.dart';
 import 'package:kith/data/models/contact.dart';
 import 'package:kith/data/models/relationship_type.dart';
 import 'package:kith/data/repositories/contact_repository.dart';
 import 'package:kith/data/repositories/relationship_type_repository.dart';
+import 'package:kith/features/contacts/domain/upcoming_birthday.dart';
 
 /// The app's [ContactRepository].
 ///
@@ -47,3 +50,22 @@ relationshipTypesProvider =
           .watch(relationshipTypeRepositoryProvider)
           .watchRelationshipTypes(householdId),
     );
+
+/// The given household's birthdays landing in the next month, soonest first.
+///
+/// Derived from [contactsProvider] rather than queried: the whole list is
+/// already streamed for the contacts screen, and a birthday is a field on a
+/// contact rather than a record of its own.
+///
+/// Empty while the contacts are still loading, the same way the suggestions
+/// are. The screen tells "nobody has a birthday coming up" from "not loaded
+/// yet" by watching the contact stream itself.
+final ProviderFamily<List<UpcomingBirthday>, String> upcomingBirthdaysProvider =
+    Provider.family<List<UpcomingBirthday>, String>((ref, householdId) {
+      final contacts = ref.watch(contactsProvider(householdId)).value;
+      if (contacts == null) return const [];
+      return upcomingBirthdays(
+        contacts: contacts,
+        now: ref.watch(nowProvider),
+      );
+    });

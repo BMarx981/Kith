@@ -12,6 +12,7 @@ import 'package:kith/data/models/member_role.dart';
 import 'package:kith/data/repositories/firestore_errors.dart';
 import 'package:kith/data/repositories/household_repository.dart';
 import 'package:kith/features/household/domain/invite_code.dart';
+import 'package:kith/features/notifications/domain/digest_schedule.dart';
 
 /// [HouseholdRepository] backed by Cloud Firestore.
 ///
@@ -252,6 +253,33 @@ class FirestoreHouseholdRepository implements HouseholdRepository {
     });
     return const Ok(null);
   });
+
+  @override
+  Future<Result<void>> setDigestPreference({
+    required String householdId,
+    required String uid,
+    required int? digestDay,
+    required int digestHour,
+  }) async {
+    if (digestDay != null &&
+        (digestDay < DateTime.monday || digestDay > DateTime.sunday)) {
+      return const Err(ValidationFailure('That is not a day of the week.'));
+    }
+    if (digestHour < DigestSchedule.minHour ||
+        digestHour > DigestSchedule.maxHour) {
+      return const Err(ValidationFailure('That is not an hour of the day.'));
+    }
+
+    return FirestoreErrors.guard(() async {
+      await _firestore
+          .collection(householdsPath)
+          .doc(householdId)
+          .collection(membersPath)
+          .doc(uid)
+          .update({'digestDay': digestDay, 'digestHour': digestHour});
+      return const Ok(null);
+    });
+  }
 
   /// Why [calendarId] and [calendarName] cannot be stored, or null when they
   /// can.

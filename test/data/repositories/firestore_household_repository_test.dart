@@ -11,6 +11,7 @@ import 'package:kith/data/models/member.dart';
 import 'package:kith/data/models/member_role.dart';
 import 'package:kith/data/repositories/firestore_household_repository.dart';
 import 'package:kith/features/household/domain/invite_code.dart';
+import 'package:kith/features/notifications/domain/digest_schedule.dart';
 import 'package:mock_exceptions/mock_exceptions.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -440,6 +441,129 @@ void main() {
         repository.watchHousehold('hid-1').first,
         throwsA(isA<UnknownFailure>()),
       );
+    });
+  });
+
+  group('setDigestPreference', () {
+    test('stores the day and hour on the member document', () async {
+      final household = await createHousehold();
+
+      final result = await repository.setDigestPreference(
+        householdId: household.id,
+        uid: owner.id,
+        digestDay: DateTime.friday,
+        digestHour: 18,
+      );
+
+      expect(result.isOk, isTrue);
+      final member = await memberData(household.id, owner.id);
+      expect(member!['digestDay'], DateTime.friday);
+      expect(member['digestHour'], 18);
+    });
+
+    test('turning it off keeps the hour that was picked', () async {
+      final household = await createHousehold();
+      await repository.setDigestPreference(
+        householdId: household.id,
+        uid: owner.id,
+        digestDay: DateTime.friday,
+        digestHour: 18,
+      );
+
+      await repository.setDigestPreference(
+        householdId: household.id,
+        uid: owner.id,
+        digestDay: null,
+        digestHour: 18,
+      );
+
+      final member = await memberData(household.id, owner.id);
+      expect(member!['digestDay'], isNull);
+      expect(member['digestHour'], 18);
+    });
+
+    test('the preference reaches the member stream', () async {
+      final household = await createHousehold();
+
+      await repository.setDigestPreference(
+        householdId: household.id,
+        uid: owner.id,
+        digestDay: DateTime.sunday,
+        digestHour: 9,
+      );
+
+      final members = await repository.watchMembers(household.id).first;
+      expect(members.single.digestDay, DateTime.sunday);
+      expect(members.single.digestHour, 9);
+      expect(members.single.wantsDigest, isTrue);
+    });
+
+    test('leaves the rest of the member alone', () async {
+      final household = await createHousehold();
+
+      await repository.setDigestPreference(
+        householdId: household.id,
+        uid: owner.id,
+        digestDay: DateTime.sunday,
+        digestHour: 9,
+      );
+
+      final member = await memberData(household.id, owner.id);
+      expect(member!['role'], MemberRole.owner.wireName);
+      expect(member['displayName'], 'Brian');
+      expect(member['joinedAt'], now.millisecondsSinceEpoch);
+    });
+
+    test('refuses a day or an hour out of range, without any I/O', () async {
+      final household = await createHousehold();
+
+      final noSuchDay = await repository.setDigestPreference(
+        householdId: household.id,
+        uid: owner.id,
+        digestDay: 8,
+        digestHour: 9,
+      );
+      final noSuchHour = await repository.setDigestPreference(
+        householdId: household.id,
+        uid: owner.id,
+        digestDay: DateTime.sunday,
+        digestHour: 24,
+      );
+
+      expect(noSuchDay.failureOrNull, isA<ValidationFailure>());
+      expect(noSuchHour.failureOrNull, isA<ValidationFailure>());
+      // The member was written with no digest asked for, and neither refusal
+      // reached the document to change that.
+      final member = await memberData(household.id, owner.id);
+      expect(member!['digestDay'], isNull);
+      expect(member['digestHour'], DigestSchedule.defaultHour);
+    });
+
+    test('maps a refused write onto a domain failure', () async {
+      final household = await createHousehold();
+      whenCalling(Invocation.method(#update, null))
+          .on(
+            firestore
+                .collection(FirestoreHouseholdRepository.householdsPath)
+                .doc(household.id)
+                .collection(FirestoreHouseholdRepository.membersPath)
+                .doc(owner.id),
+          )
+          .thenThrow(
+            FirebaseException(
+              plugin: 'cloud_firestore',
+              code: 'permission-denied',
+            ),
+          );
+
+      final result = await repository.setDigestPreference(
+        householdId: household.id,
+        uid: owner.id,
+        digestDay: DateTime.sunday,
+        digestHour: 9,
+      );
+
+      expect(result.failureOrNull, isA<PermissionFailure>());
     });
   });
 

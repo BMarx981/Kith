@@ -21,6 +21,9 @@ void main() {
     'edit': KithIcons.edit,
     'delete': KithIcons.delete,
     'reorder': KithIcons.reorder,
+    'birthday': KithIcons.birthday,
+    'digest': KithIcons.digest,
+    'importContacts': KithIcons.importContacts,
   };
 
   group('KithIcons', () {

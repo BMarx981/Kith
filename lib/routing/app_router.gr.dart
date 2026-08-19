@@ -80,6 +80,22 @@ class ContactEditorRouteArgs {
 }
 
 /// generated route for
+/// [ContactImportScreen]
+class ContactImportRoute extends PageRouteInfo<void> {
+  const ContactImportRoute({List<PageRouteInfo>? children})
+    : super(ContactImportRoute.name, initialChildren: children);
+
+  static const String name = 'ContactImportRoute';
+
+  static PageInfo page = PageInfo(
+    name,
+    builder: (data) {
+      return const ContactImportScreen();
+    },
+  );
+}
+
+/// generated route for
 /// [ContactsScreen]
 class ContactsRoute extends PageRouteInfo<void> {
   const ContactsRoute({List<PageRouteInfo>? children})

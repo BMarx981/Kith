@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kith/data/models/contact.dart';
 import 'package:kith/data/models/contact_priority.dart';
+import 'package:kith/features/contacts/domain/birthday.dart';
 import 'package:kith/features/contacts/domain/cadence.dart';
 import 'package:kith/features/contacts/domain/contact_draft.dart';
 
@@ -15,6 +16,7 @@ void main() {
     address: '12 Elm Street',
     guardianName: 'Dana',
     guardianPhone: '555-0199',
+    birthday: Birthday(month: 3, day: 14, year: 1988),
     notes: 'Allergic to cats.',
     tags: ['soccer', 'school'],
   );

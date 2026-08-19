@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:kith/data/models/contact.dart';
 import 'package:kith/data/models/contact_priority.dart';
+import 'package:kith/features/contacts/domain/birthday.dart';
 import 'package:kith/features/contacts/domain/cadence.dart';
 
 /// The editable half of a [Contact]: everything the editor collects.
@@ -21,6 +22,7 @@ class ContactDraft {
     this.address,
     this.guardianName,
     this.guardianPhone,
+    this.birthday,
     this.notes,
     this.tags = const [],
   });
@@ -36,6 +38,7 @@ class ContactDraft {
     address: contact.address,
     guardianName: contact.guardianName,
     guardianPhone: contact.guardianPhone,
+    birthday: contact.birthday,
     notes: contact.notes,
     tags: contact.tags,
   );
@@ -67,6 +70,9 @@ class ContactDraft {
   /// Phone number for [guardianName].
   final String? guardianPhone;
 
+  /// The day they were born, with the year only when it is known.
+  final Birthday? birthday;
+
   /// Anything else worth remembering.
   final String? notes;
 
@@ -88,6 +94,7 @@ class ContactDraft {
     address: _blankToNull(address),
     guardianName: _blankToNull(guardianName),
     guardianPhone: _blankToNull(guardianPhone),
+    birthday: birthday,
     notes: _blankToNull(notes),
     tags: _normalisedTags(tags),
   );
@@ -115,6 +122,7 @@ class ContactDraft {
     address: address,
     guardianName: guardianName,
     guardianPhone: guardianPhone,
+    birthday: birthday,
     notes: notes,
     tags: tags,
     isArchived: isArchived,
@@ -131,6 +139,7 @@ class ContactDraft {
     String? address,
     String? guardianName,
     String? guardianPhone,
+    Birthday? birthday,
     String? notes,
     List<String>? tags,
     bool clearPhone = false,
@@ -138,6 +147,7 @@ class ContactDraft {
     bool clearAddress = false,
     bool clearGuardianName = false,
     bool clearGuardianPhone = false,
+    bool clearBirthday = false,
     bool clearNotes = false,
   }) => ContactDraft(
     name: name ?? this.name,
@@ -151,6 +161,7 @@ class ContactDraft {
     guardianPhone: clearGuardianPhone
         ? null
         : guardianPhone ?? this.guardianPhone,
+    birthday: clearBirthday ? null : birthday ?? this.birthday,
     notes: clearNotes ? null : notes ?? this.notes,
     tags: tags ?? this.tags,
   );
@@ -184,6 +195,7 @@ class ContactDraft {
           other.address == address &&
           other.guardianName == guardianName &&
           other.guardianPhone == guardianPhone &&
+          other.birthday == birthday &&
           other.notes == notes &&
           listEquals(other.tags, tags);
 
@@ -198,6 +210,7 @@ class ContactDraft {
     address,
     guardianName,
     guardianPhone,
+    birthday,
     notes,
     Object.hashAll(tags),
   );
@@ -209,5 +222,5 @@ class ContactDraft {
       'cadenceDays: ${cadence.days}, priority: ${priority.wireName}, '
       'phone: $phone, email: $email, address: $address, '
       'guardianName: $guardianName, guardianPhone: $guardianPhone, '
-      'notes: $notes, tags: $tags)';
+      'birthday: $birthday, notes: $notes, tags: $tags)';
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:kith/data/models/contact_priority.dart';
+import 'package:kith/features/contacts/domain/birthday.dart';
 import 'package:kith/features/contacts/domain/cadence.dart';
 
 /// Someone the household tracks: a friend, a relative, or a kid's friend.
@@ -22,6 +23,7 @@ class Contact {
     this.address,
     this.guardianName,
     this.guardianPhone,
+    this.birthday,
     this.notes,
     List<String> tags = const [],
     this.isArchived = false,
@@ -51,6 +53,7 @@ class Contact {
     address: map['address'] as String?,
     guardianName: map['guardianName'] as String?,
     guardianPhone: map['guardianPhone'] as String?,
+    birthday: Birthday.tryParse(map['birthday'] as String?),
     notes: map['notes'] as String?,
     tags: (map['tags'] as List<dynamic>? ?? const []).cast<String>(),
     isArchived: map['isArchived'] as bool? ?? false,
@@ -99,6 +102,13 @@ class Contact {
   /// Phone number for [guardianName].
   final String? guardianPhone;
 
+  /// The day they were born, with the year only when it is known.
+  ///
+  /// A [Birthday] rather than a `DateTime` because a birthday recurs: what
+  /// the app asks of it is when the next one falls, not which instant in
+  /// history it was.
+  final Birthday? birthday;
+
   /// Anything else worth remembering about them.
   final String? notes;
 
@@ -139,6 +149,7 @@ class Contact {
     'address': address,
     'guardianName': guardianName,
     'guardianPhone': guardianPhone,
+    'birthday': birthday?.wireValue,
     'notes': notes,
     'tags': tags,
     'isArchived': isArchived,
@@ -161,6 +172,7 @@ class Contact {
     String? address,
     String? guardianName,
     String? guardianPhone,
+    Birthday? birthday,
     String? notes,
     List<String>? tags,
     bool? isArchived,
@@ -169,6 +181,7 @@ class Contact {
     bool clearAddress = false,
     bool clearGuardianName = false,
     bool clearGuardianPhone = false,
+    bool clearBirthday = false,
     bool clearNotes = false,
   }) => Contact(
     id: id ?? this.id,
@@ -185,6 +198,7 @@ class Contact {
     guardianPhone: clearGuardianPhone
         ? null
         : guardianPhone ?? this.guardianPhone,
+    birthday: clearBirthday ? null : birthday ?? this.birthday,
     notes: clearNotes ? null : notes ?? this.notes,
     tags: tags ?? this.tags,
     isArchived: isArchived ?? this.isArchived,
@@ -206,6 +220,7 @@ class Contact {
           other.address == address &&
           other.guardianName == guardianName &&
           other.guardianPhone == guardianPhone &&
+          other.birthday == birthday &&
           other.notes == notes &&
           listEquals(other.tags, tags) &&
           other.isArchived == isArchived;
@@ -224,6 +239,7 @@ class Contact {
     address,
     guardianName,
     guardianPhone,
+    birthday,
     notes,
     Object.hashAll(tags),
     isArchived,
@@ -236,6 +252,7 @@ class Contact {
       'cadenceDays: ${cadence.days}, priority: ${priority.wireName}, '
       'createdAt: $createdAt, updatedAt: $updatedAt, phone: $phone, '
       'email: $email, address: $address, guardianName: $guardianName, '
-      'guardianPhone: $guardianPhone, notes: $notes, tags: $tags, '
+      'guardianPhone: $guardianPhone, birthday: $birthday, '
+      'notes: $notes, tags: $tags, '
       'isArchived: $isArchived)';
 }

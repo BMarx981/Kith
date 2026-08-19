@@ -16,11 +16,15 @@ import 'package:kith/data/services/google_calendar_sink.dart';
 import 'package:kith/features/auth/application/auth_providers.dart';
 import 'package:kith/features/calendar/application/calendar_providers.dart';
 import 'package:kith/features/calendar/application/calendar_sync_service.dart';
+import 'package:kith/features/contacts/application/contact_import_controller.dart';
 import 'package:kith/features/hangouts/application/hangout_providers.dart';
 import 'package:kith/features/household/application/household_providers.dart';
+import 'package:kith/features/notifications/application/notification_providers.dart';
 import 'package:kith/features/suggestions/application/suggestion_providers.dart';
 
+import '../helpers/fake_device_contact_directory.dart';
 import '../helpers/fake_google_sign_in_service.dart';
+import '../helpers/fake_notification_scheduler.dart';
 
 void main() {
   group('firebaseOverrides', () {
@@ -31,6 +35,8 @@ void main() {
       firestore: FakeFirebaseFirestore(),
       googleSignIn: FakeGoogleSignInService(),
       httpClient: MockClient((_) async => http.Response('{}', 200)),
+      scheduler: FakeNotificationScheduler(),
+      deviceContacts: FakeDeviceContactDirectory(),
     );
 
     test('binds authServiceProvider to the Firebase implementation', () {
@@ -48,6 +54,40 @@ void main() {
         container.read(householdRepositoryProvider),
         isA<FirestoreHouseholdRepository>(),
       );
+    });
+
+    test('binds deviceContactDirectoryProvider to the one it was given', () {
+      final directory = FakeDeviceContactDirectory();
+      final container = ProviderContainer(
+        overrides: firebaseOverrides(
+          auth: MockFirebaseAuth(),
+          firestore: FakeFirebaseFirestore(),
+          googleSignIn: FakeGoogleSignInService(),
+          httpClient: MockClient((_) async => http.Response('{}', 200)),
+          scheduler: FakeNotificationScheduler(),
+          deviceContacts: directory,
+        ),
+      );
+      addTearDown(container.dispose);
+
+      expect(container.read(deviceContactDirectoryProvider), same(directory));
+    });
+
+    test('binds notificationSchedulerProvider to the one it was given', () {
+      final scheduler = FakeNotificationScheduler();
+      final container = ProviderContainer(
+        overrides: firebaseOverrides(
+          auth: MockFirebaseAuth(),
+          firestore: FakeFirebaseFirestore(),
+          googleSignIn: FakeGoogleSignInService(),
+          httpClient: MockClient((_) async => http.Response('{}', 200)),
+          scheduler: scheduler,
+          deviceContacts: FakeDeviceContactDirectory(),
+        ),
+      );
+      addTearDown(container.dispose);
+
+      expect(container.read(notificationSchedulerProvider), same(scheduler));
     });
 
     test('binds hangoutRepositoryProvider to the Firestore repository', () {
@@ -96,6 +136,8 @@ void main() {
           firestore: FakeFirebaseFirestore(),
           googleSignIn: google,
           httpClient: MockClient((_) async => http.Response('{}', 200)),
+          scheduler: FakeNotificationScheduler(),
+          deviceContacts: FakeDeviceContactDirectory(),
         ),
       );
       addTearDown(container.dispose);
@@ -115,6 +157,8 @@ void main() {
             sent.add(request.headers['Authorization']);
             return http.Response('{}', 404);
           }),
+          scheduler: FakeNotificationScheduler(),
+          deviceContacts: FakeDeviceContactDirectory(),
         ),
       );
       addTearDown(container.dispose);

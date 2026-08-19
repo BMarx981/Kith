@@ -16,6 +16,7 @@ import 'package:kith/data/services/calendar_sink.dart';
 import 'package:kith/features/auth/application/auth_providers.dart';
 import 'package:kith/features/calendar/application/calendar_providers.dart';
 import 'package:kith/features/contacts/application/contact_providers.dart';
+import 'package:kith/features/contacts/domain/birthday.dart';
 import 'package:kith/features/contacts/domain/cadence.dart';
 import 'package:kith/features/hangouts/application/hangout_providers.dart';
 import 'package:kith/features/household/application/household_providers.dart';
@@ -80,6 +81,8 @@ void main() {
     String name, {
     Cadence cadence = Cadence.monthly,
     ContactPriority priority = ContactPriority.normal,
+    Birthday? birthday,
+    bool isArchived = false,
   }) => contacts.seed(
     Contact(
       id: id,
@@ -89,6 +92,8 @@ void main() {
       priority: priority,
       createdAt: DateTime.utc(2026),
       updatedAt: DateTime.utc(2026),
+      birthday: birthday,
+      isArchived: isArchived,
     ),
   );
 
@@ -523,6 +528,112 @@ void main() {
       );
       // The suggestions themselves are Kith's own, and stay on screen.
       expect(find.byKey(HomeScreen.cardKey('cid-1')), findsOneWidget);
+    });
+  });
+
+  // "now" is 2026-08-18, a Tuesday.
+  group('the birthdays strip', () {
+    testWidgets('is absent when nobody has one coming up', (tester) async {
+      seedContact('cid-1', 'Marcus Bell');
+      seenDaysAgo('cid-1', 60);
+
+      await pumpHome(tester);
+
+      expect(find.byKey(HomeScreen.birthdaysKey), findsNothing);
+    });
+
+    testWidgets('is absent when the only birthday is past the window', (
+      tester,
+    ) async {
+      seedContact(
+        'cid-1',
+        'Marcus Bell',
+        birthday: const Birthday(month: 12, day: 25),
+      );
+
+      await pumpHome(tester);
+
+      expect(find.byKey(HomeScreen.birthdaysKey), findsNothing);
+    });
+
+    testWidgets('names the person and the day', (tester) async {
+      seedContact(
+        'cid-1',
+        'Marcus Bell',
+        birthday: const Birthday(month: 8, day: 22, year: 1988),
+      );
+
+      await pumpHome(tester);
+
+      expect(find.byKey(HomeScreen.birthdaysKey), findsOneWidget);
+      expect(
+        find.text('Marcus Bell turns 38 on Sat 22 Aug.'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('says today without a date, and skips the age with no year', (
+      tester,
+    ) async {
+      seedContact(
+        'cid-1',
+        'Ana Reyes',
+        birthday: const Birthday(month: 8, day: 18),
+      );
+
+      await pumpHome(tester);
+
+      expect(find.text("Ana Reyes's birthday is today."), findsOneWidget);
+    });
+
+    testWidgets('leaves out an archived contact', (tester) async {
+      seedContact(
+        'cid-1',
+        'Marcus Bell',
+        birthday: const Birthday(month: 8, day: 22),
+        isArchived: true,
+      );
+
+      await pumpHome(tester);
+
+      expect(find.byKey(HomeScreen.birthdaysKey), findsNothing);
+    });
+
+    testWidgets('shows three, then counts the rest', (tester) async {
+      for (final (index, day) in [19, 20, 21, 22, 23].indexed) {
+        seedContact(
+          'cid-$index',
+          'Friend $index',
+          birthday: Birthday(month: 8, day: day),
+        );
+      }
+
+      await pumpHome(tester);
+
+      expect(find.byKey(HomeScreen.birthdayKey('cid-0')), findsOneWidget);
+      expect(find.byKey(HomeScreen.birthdayKey('cid-2')), findsOneWidget);
+      expect(find.byKey(HomeScreen.birthdayKey('cid-3')), findsNothing);
+      expect(find.text('2 more this month.'), findsOneWidget);
+    });
+
+    testWidgets('sits above the ranking rather than replacing it', (
+      tester,
+    ) async {
+      seedContact(
+        'cid-1',
+        'Marcus Bell',
+        birthday: const Birthday(month: 8, day: 22),
+      );
+      seenDaysAgo('cid-1', 60);
+
+      await pumpHome(tester);
+
+      expect(find.byKey(HomeScreen.birthdaysKey), findsOneWidget);
+      expect(find.byKey(HomeScreen.cardKey('cid-1')), findsOneWidget);
+      expect(
+        tester.getCenter(find.byKey(HomeScreen.birthdaysKey)).dy,
+        lessThan(tester.getCenter(find.byKey(HomeScreen.cardKey('cid-1'))).dy),
+      );
     });
   });
 }

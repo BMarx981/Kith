@@ -1,4 +1,18 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- The weekly digest is a scheduled local notification. POST_NOTIFICATIONS
+         is what the digest switch asks the user for on Android 13+;
+         RECEIVE_BOOT_COMPLETED is what lets the plugin put a pending digest
+         back after a reboot. SCHEDULE_EXACT_ALARM is deliberately absent: the
+         digest is scheduled inexactly, because a weekly summary that arrives
+         within the hour is the same summary, and Android reserves exact alarms
+         for alarms and timers. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+
+    <!-- The address book import. Read only: Kith brings people over and never
+         writes back, so WRITE_CONTACTS is deliberately absent. -->
+    <uses-permission android:name="android.permission.READ_CONTACTS"/>
+
     <application
         android:label="kith"
         android:name="${applicationName}"
@@ -25,6 +39,22 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- flutter_local_notifications' own receivers: the first shows a
+             scheduled notification when its time comes, the second reschedules
+             what was pending after a reboot or an app update. -->
+        <receiver
+            android:exported="false"
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
+        <receiver
+            android:exported="false"
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>
+            </intent-filter>
+        </receiver>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

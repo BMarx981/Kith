@@ -63,6 +63,15 @@ abstract final class KithIcons {
   /// One contact's hangout history.
   static const history = IconData(0xe1a0, fontFamily: _family);
 
+  /// A contact's birthday, and the ones coming up.
+  static const birthday = IconData(0xe780, fontFamily: _family);
+
+  /// The weekly digest notification, and the setting behind it.
+  static const digest = IconData(0xe5e8, fontFamily: _family);
+
+  /// Importing contacts from the device's address book.
+  static const importContacts = IconData(0xe6f8, fontFamily: _family);
+
   /// The household's linked calendar, and a plan that has reached it.
   ///
   /// The same glyph as [date] on purpose: a day and the calendar it sits on

@@ -1,5 +1,6 @@
 import 'package:kith/data/models/contact.dart';
 import 'package:kith/data/models/relationship_type.dart';
+import 'package:kith/features/contacts/domain/birthday.dart';
 import 'package:kith/features/contacts/domain/cadence.dart';
 
 /// Client-side checks on what the user typed into the contact editor and the
@@ -56,6 +57,21 @@ abstract final class ContactFieldValidator {
   /// exactly this field.
   static String? customCadence(String? input) =>
       Cadence.parse(input ?? '').failureOrNull?.message;
+
+  /// Validates the birthday field. Blank is allowed: most contacts will
+  /// never have one, and a birthday is not worth blocking a save over.
+  ///
+  /// Defers to [Birthday.parse], whose refusals are written as copy for
+  /// exactly this field.
+  static String? birthday(String? input) {
+    if ((input?.trim() ?? '').isEmpty) return null;
+    return Birthday.parse(input!).failureOrNull?.message;
+  }
+
+  /// Reads the birthday field, answering null for blank and for anything
+  /// [birthday] would have refused.
+  static Birthday? parseBirthday(String? input) =>
+      (input?.trim() ?? '').isEmpty ? null : Birthday.tryParse(input);
 
   /// Validates the comma-separated tag field.
   static String? tags(String? input) {

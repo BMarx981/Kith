@@ -46,12 +46,25 @@ dependencies:
   flutter:
     sdk: flutter
 
+  # The weekly digest. A local notification rather than a push: the digest is
+  # computed from data the device already has, so there is nothing for a
+  # server to know that the phone does not.
+  flutter_contacts: ^2.3.1
+  flutter_local_notifications: ^22.3.0
+
   # State management: classic providers only, no codegen.
   #
   # Held at 3.3.x deliberately. riverpod_lint 3.1.4 is the newest release whose
   # analyzer constraint resolves alongside auto_route_generator, and it pins
   # riverpod exactly. Bumping this to 3.4.x drops riverpod_lint entirely.
   flutter_riverpod: ^3.3.2
+
+  # The device's IANA timezone name, over a platform channel. The `timezone`
+  # package ships the database but has no way to ask the phone which zone it
+  # is in, so this is what turns "Sunday at 9" into an instant the scheduler
+  # can fire on. Named by flutter_local_notifications' own README as the way
+  # to do it.
+  flutter_timezone: ^5.1.0
 
   # Federated sign-in. 7.x splits authentication (an id token, for Firebase)
   # from authorization (access tokens for scopes), which is what lets M5 ask
@@ -65,6 +78,11 @@ dependencies:
   # Already resolved transitively through Firebase; named here because lib/
   # imports it directly.
   http: ^1.6.0
+
+  # Zoned wall-clock time, required by flutter_local_notifications to schedule
+  # anything: "Sunday at 9am" is a local time, not an instant, and only a
+  # timezone database can turn one into the other across a DST boundary.
+  timezone: ^0.11.1
 
 dev_dependencies:
   auto_route_generator: ^10.6.0

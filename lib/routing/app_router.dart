@@ -9,6 +9,7 @@ import 'package:kith/features/auth/application/auth_providers.dart';
 import 'package:kith/features/auth/presentation/sign_in_screen.dart';
 import 'package:kith/features/calendar/presentation/calendar_settings_screen.dart';
 import 'package:kith/features/contacts/presentation/contact_editor_screen.dart';
+import 'package:kith/features/contacts/presentation/contact_import_screen.dart';
 import 'package:kith/features/contacts/presentation/contacts_screen.dart';
 import 'package:kith/features/contacts/presentation/relationship_types_screen.dart';
 import 'package:kith/features/hangouts/presentation/hangout_editor_screen.dart';
@@ -66,6 +67,11 @@ class AppRouter extends RootStackRouter {
     AutoRoute(
       page: RelationshipTypesRoute.page,
       path: '/contacts/labels',
+      guards: [authGuard, householdGuard],
+    ),
+    AutoRoute(
+      page: ContactImportRoute.page,
+      path: '/contacts/import',
       guards: [authGuard, householdGuard],
     ),
     AutoRoute(

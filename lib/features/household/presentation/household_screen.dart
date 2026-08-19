@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,6 +12,10 @@ import 'package:kith/data/models/member_role.dart';
 import 'package:kith/features/auth/application/auth_providers.dart';
 import 'package:kith/features/household/application/household_providers.dart';
 import 'package:kith/features/household/presentation/household_failure_message.dart';
+import 'package:kith/features/notifications/application/digest_controller.dart';
+import 'package:kith/features/notifications/application/notification_providers.dart';
+import 'package:kith/features/notifications/domain/digest_schedule.dart';
+import 'package:kith/features/notifications/presentation/digest_failure_message.dart';
 import 'package:kith/routing/app_router.dart';
 
 /// The household's members, and the code that invites more of them.
@@ -28,6 +34,15 @@ class HouseholdScreen extends ConsumerWidget {
 
   /// Identifies the way through to the calendar settings to tests.
   static const calendarKey = Key('household.calendar');
+
+  /// Identifies the weekly-digest switch to tests.
+  static const digestKey = Key('household.digest');
+
+  /// Identifies the digest's day picker to tests.
+  static const digestDayKey = Key('household.digest.day');
+
+  /// Identifies the digest's hour picker to tests.
+  static const digestHourKey = Key('household.digest.hour');
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -75,6 +90,8 @@ class _HouseholdBody extends ConsumerWidget {
         },
         const Divider(height: KithSpacing.xl),
         _CalendarRow(householdId: householdId),
+        const Divider(height: KithSpacing.xl),
+        _DigestSection(householdId: householdId),
         const Divider(height: KithSpacing.xl),
         switch (members) {
           AsyncData(:final value) => _MemberList(members: value),
@@ -171,6 +188,148 @@ class _CalendarRow extends ConsumerWidget {
         name == null ? 'Not linked' : 'Plans go on "$name"',
       ),
       onTap: () => context.router.push(const CalendarSettingsRoute()),
+    );
+  }
+}
+
+/// The member's own weekly digest: whether they want one, and when.
+///
+/// On the household screen rather than a settings page of its own because it
+/// is one switch and two pickers, and because this is already where the app
+/// keeps the things you set up once. The preference is personal even though it
+/// lives here: one partner may want the nudge and the other may not, so the
+/// row reads off *this* member's document and writes only to it.
+class _DigestSection extends ConsumerWidget {
+  const _DigestSection({required this.householdId});
+
+  final String householdId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final member = ref.watch(currentMemberProvider(householdId));
+    final state = ref.watch(digestControllerProvider);
+    final day = member?.digestDay;
+    final hour = member?.digestHour ?? DigestSchedule.defaultHour;
+
+    void set({int? day, int? hour}) => unawaited(
+      ref
+          .read(digestControllerProvider.notifier)
+          .setPreference(day: day, hour: hour ?? DigestSchedule.defaultHour),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SwitchListTile(
+          key: HouseholdScreen.digestKey,
+          secondary: const Icon(KithIcons.digest),
+          title: const Text('Weekly digest'),
+          subtitle: Text(
+            day == null
+                ? 'Off'
+                : '${DigestSchedule.dayLabel(day)} at '
+                      '${DigestSchedule.hourLabel(hour)}',
+          ),
+          value: day != null,
+          // Inert until the roster has arrived: a switch that reads "off"
+          // because the document has not loaded would store "off" if tapped.
+          onChanged: member == null || state.isBusy
+              ? null
+              : (wanted) => set(
+                  day: wanted ? DateTime.sunday : null,
+                  hour: hour,
+                ),
+        ),
+        if (day != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              KithSpacing.md,
+              0,
+              KithSpacing.md,
+              KithSpacing.sm,
+            ),
+            child: Row(
+              spacing: KithSpacing.sm,
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<int>(
+                    key: HouseholdScreen.digestDayKey,
+                    initialValue: day,
+                    // The two pickers share a row at phone width, where
+                    // "Wednesday" is wider than half the screen. Expanding
+                    // lets it ellipsize instead of overflowing the row.
+                    isExpanded: true,
+                    decoration: const InputDecoration(labelText: 'Day'),
+                    items: [
+                      for (var weekday = DateTime.monday;
+                          weekday <= DateTime.sunday;
+                          weekday++)
+                        DropdownMenuItem(
+                          value: weekday,
+                          child: Text(DigestSchedule.dayLabel(weekday)),
+                        ),
+                    ],
+                    onChanged: state.isBusy
+                        ? null
+                        : (picked) => set(day: picked ?? day, hour: hour),
+                  ),
+                ),
+                Expanded(
+                  child: DropdownButtonFormField<int>(
+                    key: HouseholdScreen.digestHourKey,
+                    initialValue: hour,
+                    isExpanded: true,
+                    decoration: const InputDecoration(labelText: 'Time'),
+                    items: [
+                      for (var at = DigestSchedule.minHour;
+                          at <= DigestSchedule.maxHour;
+                          at++)
+                        DropdownMenuItem(
+                          value: at,
+                          child: Text(DigestSchedule.hourLabel(at)),
+                        ),
+                    ],
+                    onChanged: state.isBusy
+                        ? null
+                        : (picked) => set(day: day, hour: picked ?? hour),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        if (state.isPermissionDenied)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              KithSpacing.md,
+              0,
+              KithSpacing.md,
+              KithSpacing.sm,
+            ),
+            child: Text(
+              'Notifications are switched off for Kith. Turn them on in your '
+              'phone settings, then try again.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        if (state.failure case final failure?)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              KithSpacing.md,
+              0,
+              KithSpacing.md,
+              KithSpacing.sm,
+            ),
+            child: Text(
+              digestFailureMessage(failure),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.error,
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

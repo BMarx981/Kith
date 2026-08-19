@@ -6,6 +6,8 @@
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>NSContactsUsageDescription</key>
+	<string>Kith reads your contacts so you can pick which of them to track. Nothing is written back to your address book, and nothing is uploaded until you choose someone.</string>
 	<key>CFBundleDisplayName</key>
 	<string>Kith</string>
 	<key>CFBundleExecutable</key>

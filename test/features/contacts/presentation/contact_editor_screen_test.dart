@@ -6,6 +6,7 @@ import 'package:kith/data/models/contact.dart';
 import 'package:kith/data/models/contact_priority.dart';
 import 'package:kith/data/models/relationship_type.dart';
 import 'package:kith/features/contacts/application/contact_providers.dart';
+import 'package:kith/features/contacts/domain/birthday.dart';
 import 'package:kith/features/contacts/domain/cadence.dart';
 import 'package:kith/features/contacts/presentation/contact_editor_screen.dart';
 import 'package:kith/features/household/application/household_providers.dart';
@@ -65,6 +66,7 @@ void main() {
       updatedAt: createdAt,
       phone: '555-0100',
       guardianName: 'Dana',
+      birthday: const Birthday(month: 3, day: 14, year: 1988),
       notes: 'Allergic to cats.',
       tags: const ['soccer', 'school'],
       isArchived: isArchived,
@@ -124,6 +126,105 @@ void main() {
       expect(draft.cadence, Cadence.weekly);
       expect(draft.priority, ContactPriority.high);
       expect(draft.relationshipTypeId, 'rid-friend');
+    });
+
+    testWidgets('stores a birthday, with and without a year', (tester) async {
+      seedLabels();
+
+      await pumpEditor(tester);
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Name'),
+        'Marcus',
+      );
+      await tester.enterText(
+        find.byKey(ContactEditorScreen.birthdayKey),
+        '14 Mar 1988',
+      );
+      await tester.tap(find.byKey(ContactEditorScreen.saveKey));
+      await tester.pumpAndSettle();
+
+      expect(
+        contacts.createCalls.single.draft.birthday,
+        const Birthday(month: 3, day: 14, year: 1988),
+      );
+    });
+
+    testWidgets('stores a birthday whose year nobody knows', (tester) async {
+      seedLabels();
+
+      await pumpEditor(tester);
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Name'),
+        'Marcus',
+      );
+      await tester.enterText(
+        find.byKey(ContactEditorScreen.birthdayKey),
+        '14 Mar',
+      );
+      await tester.tap(find.byKey(ContactEditorScreen.saveKey));
+      await tester.pumpAndSettle();
+
+      expect(
+        contacts.createCalls.single.draft.birthday,
+        const Birthday(month: 3, day: 14),
+      );
+    });
+
+    testWidgets('leaves the birthday unset when the field is blank', (
+      tester,
+    ) async {
+      seedLabels();
+
+      await pumpEditor(tester);
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Name'),
+        'Marcus',
+      );
+      await tester.tap(find.byKey(ContactEditorScreen.saveKey));
+      await tester.pumpAndSettle();
+
+      expect(contacts.createCalls.single.draft.birthday, isNull);
+    });
+
+    testWidgets('refuses a birthday it cannot read', (tester) async {
+      seedLabels();
+
+      await pumpEditor(tester);
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Name'),
+        'Marcus',
+      );
+      await tester.enterText(
+        find.byKey(ContactEditorScreen.birthdayKey),
+        'sometime in spring',
+      );
+      await tester.tap(find.byKey(ContactEditorScreen.saveKey));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Write it like 14 Mar, or 14 Mar 1988.'),
+        findsOneWidget,
+      );
+      expect(contacts.createCalls, isEmpty);
+    });
+
+    testWidgets('refuses a day the month does not have', (tester) async {
+      seedLabels();
+
+      await pumpEditor(tester);
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Name'),
+        'Marcus',
+      );
+      await tester.enterText(
+        find.byKey(ContactEditorScreen.birthdayKey),
+        '31 Feb',
+      );
+      await tester.tap(find.byKey(ContactEditorScreen.saveKey));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Feb has no day 31.'), findsOneWidget);
+      expect(contacts.createCalls, isEmpty);
     });
 
     testWidgets('refuses to store a contact with no name', (tester) async {
@@ -260,7 +361,21 @@ void main() {
       expect(find.text('Dana'), findsOneWidget);
       expect(find.text('soccer, school'), findsOneWidget);
       expect(find.text('Allergic to cats.'), findsOneWidget);
+      // The stored form is '1988-03-14'; the field shows how it is written.
+      expect(find.text('14 Mar 1988'), findsOneWidget);
       expect(find.text('Edit contact'), findsOneWidget);
+    });
+
+    testWidgets('clears a birthday that was emptied', (tester) async {
+      seedLabels();
+      seedContact();
+
+      await pumpEditor(tester, contactId: 'cid-1');
+      await tester.enterText(find.byKey(ContactEditorScreen.birthdayKey), '');
+      await tester.tap(find.byKey(ContactEditorScreen.saveKey));
+      await tester.pumpAndSettle();
+
+      expect(contacts.updateCalls.single.draft.birthday, isNull);
     });
 
     testWidgets('opens a custom cadence on the custom option', (tester) async {

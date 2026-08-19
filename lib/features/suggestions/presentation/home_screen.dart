@@ -8,14 +8,19 @@ import 'package:kith/app/widgets/freshness_gauge.dart';
 import 'package:kith/core/clock/clock_provider.dart';
 import 'package:kith/core/result/failure.dart';
 import 'package:kith/core/time/calendar_day.dart';
+import 'package:kith/data/models/contact.dart';
+import 'package:kith/data/models/member.dart';
 import 'package:kith/data/models/planned_hangout.dart';
 import 'package:kith/data/models/planned_hangout_status.dart';
 import 'package:kith/features/calendar/application/calendar_sync_controller.dart';
 import 'package:kith/features/calendar/presentation/calendar_failure_message.dart';
 import 'package:kith/features/contacts/application/contact_providers.dart';
+import 'package:kith/features/contacts/domain/upcoming_birthday.dart';
 import 'package:kith/features/hangouts/application/hangout_providers.dart';
 import 'package:kith/features/hangouts/domain/day_label.dart';
 import 'package:kith/features/household/application/household_providers.dart';
+import 'package:kith/features/notifications/application/digest_controller.dart';
+import 'package:kith/features/notifications/application/notification_providers.dart';
 import 'package:kith/features/suggestions/application/plan_outcome.dart';
 import 'package:kith/features/suggestions/application/suggestion_action_controller.dart';
 import 'package:kith/features/suggestions/application/suggestion_providers.dart';
@@ -51,6 +56,12 @@ class HomeScreen extends ConsumerWidget {
   /// Identifies one suggestion's deferral action to tests.
   static Key snoozeKey(String contactId, SnoozeHorizon horizon) =>
       Key('home.${horizon.name}.$contactId');
+
+  /// Identifies the upcoming-birthdays strip to tests.
+  static const birthdaysKey = Key('home.birthdays');
+
+  /// Identifies one upcoming birthday's row to tests.
+  static Key birthdayKey(String contactId) => Key('home.birthday.$contactId');
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -108,13 +119,16 @@ class _ReconnectBodyState extends ConsumerState<_ReconnectBody> {
   late final AppLifecycleListener _lifecycle;
   late final ProviderSubscription<AsyncValue<List<PlannedHangout>>>
   _plansArrived;
+  late final ProviderSubscription<AsyncValue<List<Contact>>> _contactsArrived;
+  late final ProviderSubscription<Member?> _memberArrived;
 
   @override
   void initState() {
     super.initState();
     // Coming back to the app is the other half of "on open": an event moved on
-    // a laptop while the phone sat in a pocket is exactly what the poll is for.
-    _lifecycle = AppLifecycleListener(onResume: _sync);
+    // a laptop while the phone sat in a pocket is exactly what the poll is for,
+    // and a week that has gone by is what the digest needs recomputing for.
+    _lifecycle = AppLifecycleListener(onResume: _onOpen);
     // The first pass waits for the plans to arrive rather than running now:
     // there is nothing to reconcile until the stream has said what the
     // household has planned.
@@ -126,17 +140,52 @@ class _ReconnectBodyState extends ConsumerState<_ReconnectBody> {
       },
       fireImmediately: true,
     );
+    // The digest is rescheduled from three streams rather than one because it
+    // reads all three, and whichever arrives last is the one that makes the
+    // answer trustworthy. _rescheduleDigest is a no-op until they all have.
+    _contactsArrived = ref.listenManual(
+      contactsProvider(widget.householdId),
+      (previous, next) => _rescheduleDigest(),
+      fireImmediately: true,
+    );
+    _memberArrived = ref.listenManual(
+      currentMemberProvider(widget.householdId),
+      (previous, next) => _rescheduleDigest(),
+      fireImmediately: true,
+    );
   }
 
   @override
   void dispose() {
     _lifecycle.dispose();
     _plansArrived.close();
+    _contactsArrived.close();
+    _memberArrived.close();
     super.dispose();
+  }
+
+  void _onOpen() {
+    _sync();
+    _rescheduleDigest();
   }
 
   void _sync() =>
       unawaited(ref.read(calendarSyncControllerProvider.notifier).syncNow());
+
+  /// Brings the scheduled digest into line with what the household now looks
+  /// like.
+  ///
+  /// Waits for all three reads the digest depends on. Rescheduling on partial
+  /// data would cancel a perfectly good digest during a cold start, because a
+  /// household whose contacts have not arrived looks like a household with
+  /// nobody overdue.
+  void _rescheduleDigest() {
+    final householdId = widget.householdId;
+    if (ref.read(contactsProvider(householdId)).value == null) return;
+    if (ref.read(plannedHangoutsProvider(householdId)).value == null) return;
+    if (ref.read(currentMemberProvider(householdId)) == null) return;
+    unawaited(ref.read(digestControllerProvider.notifier).reschedule());
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -149,6 +198,7 @@ class _ReconnectBodyState extends ConsumerState<_ReconnectBody> {
     final hangouts = ref.watch(hangoutsProvider(householdId));
     final plans = ref.watch(plannedHangoutsProvider(householdId));
     final syncFailure = ref.watch(calendarSyncControllerProvider).failure;
+    final birthdays = ref.watch(upcomingBirthdaysProvider(householdId));
 
     final body = switch ((contacts, hangouts, plans)) {
       (AsyncError(:final error), _, _) ||
@@ -168,6 +218,7 @@ class _ReconnectBodyState extends ConsumerState<_ReconnectBody> {
     return Column(
       children: [
         if (syncFailure != null) _SyncNotice(failure: syncFailure),
+        if (birthdays.isNotEmpty) _Birthdays(birthdays: birthdays),
         Expanded(child: body),
       ],
     );
@@ -179,6 +230,91 @@ class _ReconnectBodyState extends ConsumerState<_ReconnectBody> {
     final Failure failure => suggestionFailureMessage(failure),
     _ => 'Something went wrong. Try again.',
   };
+}
+
+/// The birthdays landing in the next month, above the ranking.
+///
+/// Above it rather than in it because a birthday is not a suggestion. The
+/// engine ranks who you are overdue with, and a date that is coming whatever
+/// you do does not compete with that — it also cannot be planned, snoozed or
+/// dismissed, which is what a card in the list below offers. It stays a strip:
+/// no actions, and capped at [_maxShown] so it never grows into a second list
+/// and pushes the section it sits above off the screen.
+class _Birthdays extends StatelessWidget {
+  const _Birthdays({required this.birthdays});
+
+  final List<UpcomingBirthday> birthdays;
+
+  /// Most rows the strip will draw. Past three it stops being a heads-up.
+  static const _maxShown = 3;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final shown = birthdays.take(_maxShown).toList();
+    final hidden = birthdays.length - shown.length;
+
+    return Padding(
+      key: HomeScreen.birthdaysKey,
+      padding: const EdgeInsets.fromLTRB(
+        KithSpacing.md,
+        KithSpacing.md,
+        KithSpacing.md,
+        0,
+      ),
+      child: Card(
+        margin: EdgeInsets.zero,
+        child: Padding(
+          padding: const EdgeInsets.all(KithSpacing.sm),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (final birthday in shown)
+                Padding(
+                  key: HomeScreen.birthdayKey(birthday.contact.id),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: KithSpacing.xxs,
+                  ),
+                  child: Row(
+                    spacing: KithSpacing.xs,
+                    children: [
+                      Icon(
+                        KithIcons.birthday,
+                        size: KithSpacing.md,
+                        color: birthday.isToday
+                            ? theme.colorScheme.primary
+                            : theme.colorScheme.onSurfaceVariant,
+                      ),
+                      Expanded(
+                        child: Text(
+                          birthday.headline,
+                          style: theme.textTheme.bodyMedium,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              if (hidden > 0)
+                Padding(
+                  padding: const EdgeInsets.only(
+                    left: KithSpacing.lg,
+                    top: KithSpacing.xxs,
+                  ),
+                  child: Text(
+                    hidden == 1
+                        ? '1 more this month.'
+                        : '$hidden more this month.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _Suggestions extends StatelessWidget {

@@ -72,6 +72,22 @@ abstract interface class HouseholdRepository {
     required String calendarName,
   });
 
+  /// Records that [uid] wants the weekly digest on [digestDay] at
+  /// [digestHour], or no digest at all when [digestDay] is null.
+  ///
+  /// A self-write: a member sets their own preference and nobody else's, which
+  /// is what the security rule enforces. [digestHour] is kept even while the
+  /// digest is off, so turning it back on does not lose the time they picked.
+  ///
+  /// Comes back as a `ValidationFailure` without any I/O for a day that is not
+  /// a weekday or an hour outside 0-23.
+  Future<Result<void>> setDigestPreference({
+    required String householdId,
+    required String uid,
+    required int? digestDay,
+    required int digestHour,
+  });
+
   /// Stops writing [householdId]'s plans to a calendar.
   ///
   /// Events already on the calendar are left where they are: they are the

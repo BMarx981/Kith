@@ -5,12 +5,20 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kith/core/result/failure.dart';
 import 'package:kith/data/models/auth_user.dart';
 import 'package:kith/features/auth/application/auth_providers.dart';
+import 'package:kith/features/contacts/application/contact_providers.dart';
+import 'package:kith/features/hangouts/application/hangout_providers.dart';
 import 'package:kith/features/household/application/household_providers.dart';
 import 'package:kith/features/household/domain/invite_code.dart';
 import 'package:kith/features/household/presentation/household_screen.dart';
+import 'package:kith/features/notifications/application/notification_providers.dart';
+import 'package:kith/features/suggestions/application/suggestion_providers.dart';
 
 import '../../../helpers/fake_auth_service.dart';
+import '../../../helpers/fake_contact_repository.dart';
+import '../../../helpers/fake_hangout_repository.dart';
 import '../../../helpers/fake_household_repository.dart';
+import '../../../helpers/fake_notification_scheduler.dart';
+import '../../../helpers/fake_planned_hangout_repository.dart';
 import '../../../helpers/pump_app.dart';
 
 void main() {
@@ -19,17 +27,33 @@ void main() {
 
   late FakeAuthService auth;
   late FakeHouseholdRepository repository;
+  late FakeNotificationScheduler scheduler;
+  late FakeContactRepository contacts;
+  late FakeHangoutRepository hangouts;
+  late FakePlannedHangoutRepository plans;
 
   setUp(() {
     auth = FakeAuthService(initialUser: owner);
     addTearDown(auth.dispose);
     repository = FakeHouseholdRepository();
     addTearDown(repository.dispose);
+    scheduler = FakeNotificationScheduler();
+    contacts = FakeContactRepository();
+    addTearDown(contacts.dispose);
+    hangouts = FakeHangoutRepository();
+    addTearDown(hangouts.dispose);
+    plans = FakePlannedHangoutRepository();
+    addTearDown(plans.dispose);
   });
 
   List<Override> overrides() => [
     authServiceProvider.overrideWithValue(auth),
     householdRepositoryProvider.overrideWithValue(repository),
+    currentHouseholdIdProvider.overrideWithValue('hid-1'),
+    notificationSchedulerProvider.overrideWithValue(scheduler),
+    contactRepositoryProvider.overrideWithValue(contacts),
+    hangoutRepositoryProvider.overrideWithValue(hangouts),
+    plannedHangoutRepositoryProvider.overrideWithValue(plans),
   ];
 
   Future<void> seedHousehold() => repository.createHousehold(
@@ -179,6 +203,116 @@ void main() {
       await tester.pump();
 
       expect(auth.currentUser, isNull);
+    });
+  });
+
+  group('the weekly digest', () {
+    testWidgets('reads off as off, with the switch clear', (tester) async {
+      await seedHousehold();
+
+      await pumpScreen(tester);
+
+      expect(find.text('Weekly digest'), findsOneWidget);
+      expect(find.text('Off'), findsOneWidget);
+      final tile = tester.widget<SwitchListTile>(
+        find.byKey(HouseholdScreen.digestKey),
+      );
+      expect(tile.value, isFalse);
+      expect(find.byKey(HouseholdScreen.digestDayKey), findsNothing);
+    });
+
+    testWidgets('turning it on stores a default of Sunday', (tester) async {
+      await seedHousehold();
+
+      await pumpScreen(tester);
+      await tester.tap(find.byKey(HouseholdScreen.digestKey));
+      await tester.pumpAndSettle();
+
+      expect(scheduler.permissionAsks, 1);
+      expect(repository.digestCalls.single.digestDay, DateTime.sunday);
+      expect(repository.digestCalls.single.uid, owner.id);
+      expect(find.text('Sunday at 9am'), findsOneWidget);
+      expect(find.byKey(HouseholdScreen.digestDayKey), findsOneWidget);
+      expect(find.byKey(HouseholdScreen.digestHourKey), findsOneWidget);
+    });
+
+    testWidgets('turning it off stores no day', (tester) async {
+      await seedHousehold();
+      await repository.setDigestPreference(
+        householdId: 'hid-1',
+        uid: owner.id,
+        digestDay: DateTime.sunday,
+        digestHour: 9,
+      );
+
+      await pumpScreen(tester);
+      await tester.tap(find.byKey(HouseholdScreen.digestKey));
+      await tester.pumpAndSettle();
+
+      expect(repository.digestCalls.last.digestDay, isNull);
+      expect(find.text('Off'), findsOneWidget);
+    });
+
+    testWidgets('picking a day and an hour stores both', (tester) async {
+      await seedHousehold();
+      await repository.setDigestPreference(
+        householdId: 'hid-1',
+        uid: owner.id,
+        digestDay: DateTime.sunday,
+        digestHour: 9,
+      );
+
+      await pumpScreen(tester);
+      await tester.tap(find.byKey(HouseholdScreen.digestDayKey));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Friday').last);
+      await tester.pumpAndSettle();
+
+      expect(repository.digestCalls.last.digestDay, DateTime.friday);
+      expect(repository.digestCalls.last.digestHour, 9);
+
+      await tester.tap(find.byKey(HouseholdScreen.digestHourKey));
+      await tester.pumpAndSettle();
+      // An hour next to the selected one: the menu opens scrolled to 9am, and
+      // a distant entry would be off-screen rather than absent.
+      await tester.tap(find.text('8am').last);
+      await tester.pumpAndSettle();
+
+      expect(repository.digestCalls.last.digestDay, DateTime.friday);
+      expect(repository.digestCalls.last.digestHour, 8);
+      expect(find.text('Friday at 8am'), findsOneWidget);
+    });
+
+    testWidgets('says where to look when notifications are refused', (
+      tester,
+    ) async {
+      await seedHousehold();
+      scheduler.permissionGranted = false;
+
+      await pumpScreen(tester);
+      await tester.tap(find.byKey(HouseholdScreen.digestKey));
+      await tester.pumpAndSettle();
+
+      expect(repository.digestCalls, isEmpty);
+      expect(
+        find.textContaining('Notifications are switched off for Kith.'),
+        findsOneWidget,
+      );
+      expect(find.text('Off'), findsOneWidget);
+    });
+
+    testWidgets('says when the preference could not be stored', (tester) async {
+      await seedHousehold();
+      repository.nextFailure = const NetworkFailure('offline');
+
+      await pumpScreen(tester);
+      await tester.tap(find.byKey(HouseholdScreen.digestKey));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining('could not be saved'),
+        findsOneWidget,
+      );
     });
   });
 }
