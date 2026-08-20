@@ -396,6 +396,13 @@
   "ownerChip": "Owner",
 
   "weeklyDigestTitle": "Weekly digest",
+  "@weeklyDigestTitle": {
+    "description": "The digest setting on the household screen, and the name of the Android notification channel the digest is posted on"
+  },
+  "digestChannelDescription": "A weekly summary of who you are overdue to see.",
+  "@digestChannelDescription": {
+    "description": "What the Android notification channel is for, shown under its name in the system notification settings"
+  },
   "digestOff": "Off",
   "digestDayAt": "{day} at {hour}",
   "@digestDayAt": {

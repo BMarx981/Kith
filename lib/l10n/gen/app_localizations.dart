@@ -1120,11 +1120,17 @@ abstract class AppLocalizations {
   /// **'Owner'**
   String get ownerChip;
 
-  /// No description provided for @weeklyDigestTitle.
+  /// The digest setting on the household screen, and the name of the Android notification channel the digest is posted on
   ///
   /// In en, this message translates to:
   /// **'Weekly digest'**
   String get weeklyDigestTitle;
+
+  /// What the Android notification channel is for, shown under its name in the system notification settings
+  ///
+  /// In en, this message translates to:
+  /// **'A weekly summary of who you are overdue to see.'**
+  String get digestChannelDescription;
 
   /// No description provided for @digestOff.
   ///

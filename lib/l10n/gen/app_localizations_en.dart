@@ -626,6 +626,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get weeklyDigestTitle => 'Weekly digest';
 
   @override
+  String get digestChannelDescription =>
+      'A weekly summary of who you are overdue to see.';
+
+  @override
   String get digestOff => 'Off';
 
   @override

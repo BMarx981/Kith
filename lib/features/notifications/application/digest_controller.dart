@@ -119,6 +119,8 @@ class DigestController extends Notifier<DigestState> {
       ),
       title: digest.title(l10n),
       body: digest.body(l10n),
+      channelName: l10n.weeklyDigestTitle,
+      channelDescription: l10n.digestChannelDescription,
     );
     if (scheduled case Err(:final failure)) {
       state = state.copyWith(failure: failure);

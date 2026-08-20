@@ -44,16 +44,14 @@ class LocalNotificationScheduler implements NotificationScheduler {
   /// it, which is what lets the app refresh stale content by rescheduling.
   static const digestId = 1;
 
-  /// Android channel the digest is posted on. Named for what it is, because
-  /// the user sees this string in the system notification settings.
+  /// Android channel the digest is posted on.
+  ///
+  /// An identifier, never shown: the name and description the user reads in
+  /// the system notification settings arrive localized with each schedule
+  /// call, and Android updates them on the channel it already has under this
+  /// id, so a phone whose language changes sees the new wording next time the
+  /// app schedules.
   static const channelId = 'kith_weekly_digest';
-
-  /// Human name of [channelId], as Android shows it.
-  static const channelName = 'Weekly digest';
-
-  /// What [channelId] is for, as Android shows it.
-  static const channelDescription =
-      'A weekly summary of who you are overdue to see.';
 
   /// The icon Android draws in the status bar. `@mipmap/ic_launcher` is the
   /// launcher icon every Flutter project ships with, so no new asset is
@@ -96,6 +94,8 @@ class LocalNotificationScheduler implements NotificationScheduler {
     required DateTime at,
     required String title,
     required String body,
+    required String channelName,
+    required String channelDescription,
   }) async {
     try {
       await _ensureReady();
@@ -104,14 +104,14 @@ class LocalNotificationScheduler implements NotificationScheduler {
         title: title,
         body: body,
         scheduledDate: tz.TZDateTime.from(at, tz.local),
-        notificationDetails: const NotificationDetails(
+        notificationDetails: NotificationDetails(
           android: AndroidNotificationDetails(
             channelId,
             channelName,
             channelDescription: channelDescription,
             icon: androidIcon,
           ),
-          iOS: DarwinNotificationDetails(),
+          iOS: const DarwinNotificationDetails(),
         ),
         // Inexact on purpose: an exact alarm needs SCHEDULE_EXACT_ALARM, which
         // Android grants grudgingly and reserves for alarms and timers. A

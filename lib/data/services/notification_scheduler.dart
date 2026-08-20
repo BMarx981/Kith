@@ -26,10 +26,19 @@ abstract interface class NotificationScheduler {
   /// *now*, and a notification that repeats forever would keep announcing a
   /// week that has long since passed. The app schedules the next one every
   /// time it opens, so the content is never older than the last visit.
+  ///
+  /// [channelName] and [channelDescription] are how the digest introduces
+  /// itself in the phone's own notification settings, on a platform that groups
+  /// notifications into channels; a platform without them ignores both. They
+  /// are passed per call rather than fixed at construction for the same reason
+  /// [title] is: they are copy, and copy is localized, so the caller supplies
+  /// them in whatever language the device is reading in today.
   Future<Result<void>> scheduleWeeklyDigest({
     required DateTime at,
     required String title,
     required String body,
+    required String channelName,
+    required String channelDescription,
   });
 
   /// Cancels the scheduled digest, if there is one. Cancelling when nothing is

@@ -184,6 +184,7 @@
   "ownerChip": "Propietario",
 
   "weeklyDigestTitle": "Resumen semanal",
+  "digestChannelDescription": "Un resumen semanal de a quién llevas tiempo sin ver.",
   "digestOff": "Desactivado",
   "digestDayAt": "{day} a las {hour}",
   "digestDay": "Día",

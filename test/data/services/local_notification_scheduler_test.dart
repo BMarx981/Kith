@@ -71,6 +71,8 @@ void main() {
         at: DateTime(2026, 8, 23, 9),
         title: '3 people are overdue',
         body: 'Marcus, Ana and Ben.',
+        channelName: 'Weekly digest',
+        channelDescription: 'A weekly summary.',
       );
 
       expect(result.isOk, isTrue);
@@ -92,6 +94,36 @@ void main() {
       expect(sent[4], 'Marcus, Ana and Ben.');
     });
 
+    test('posts on one channel id, under the copy it was given', () async {
+      allowSchedule();
+
+      await schedulerOf().scheduleWeeklyDigest(
+        at: DateTime(2026, 8, 23, 9),
+        title: 'title',
+        body: 'body',
+        channelName: 'Résumé hebdomadaire',
+        channelDescription: 'Un résumé hebdomadaire.',
+      );
+
+      final details =
+          verify(
+                () => plugin.zonedSchedule(
+                  id: any(named: 'id'),
+                  title: any(named: 'title'),
+                  body: any(named: 'body'),
+                  scheduledDate: any(named: 'scheduledDate'),
+                  notificationDetails: captureAny(named: 'notificationDetails'),
+                  androidScheduleMode: any(named: 'androidScheduleMode'),
+                ),
+              ).captured.single
+              as NotificationDetails;
+      // The id is fixed so the channel survives a change of language; the name
+      // and description are whatever the caller read out of the ARB files.
+      expect(details.android?.channelId, LocalNotificationScheduler.channelId);
+      expect(details.android?.channelName, 'Résumé hebdomadaire');
+      expect(details.android?.channelDescription, 'Un résumé hebdomadaire.');
+    });
+
     test('schedules in the device zone, at the hour asked for', () async {
       allowSchedule();
 
@@ -99,6 +131,8 @@ void main() {
         at: DateTime(2026, 8, 23, 9),
         title: 'title',
         body: 'body',
+        channelName: 'Weekly digest',
+        channelDescription: 'A weekly summary.',
       );
 
       final when_ =
@@ -130,6 +164,8 @@ void main() {
         at: DateTime.utc(2026, 8, 23, 9),
         title: 'title',
         body: 'body',
+        channelName: 'Weekly digest',
+        channelDescription: 'A weekly summary.',
       );
 
       expect(tz.local, tz.UTC);
@@ -142,6 +178,8 @@ void main() {
         at: DateTime.utc(2026, 8, 23, 9),
         title: 'title',
         body: 'body',
+        channelName: 'Weekly digest',
+        channelDescription: 'A weekly summary.',
       );
 
       expect(tz.local, tz.UTC);
@@ -163,6 +201,8 @@ void main() {
         at: DateTime(2026, 8, 23, 9),
         title: 'title',
         body: 'body',
+        channelName: 'Weekly digest',
+        channelDescription: 'A weekly summary.',
       );
 
       expect(result.failureOrNull, isA<UnknownFailure>());
@@ -180,11 +220,15 @@ void main() {
         at: DateTime(2026, 8, 23, 9),
         title: 'a',
         body: 'b',
+        channelName: 'Weekly digest',
+        channelDescription: 'A weekly summary.',
       );
       await scheduler.scheduleWeeklyDigest(
         at: DateTime(2026, 8, 30, 9),
         title: 'c',
         body: 'd',
+        channelName: 'Weekly digest',
+        channelDescription: 'A weekly summary.',
       );
 
       verify(

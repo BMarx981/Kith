@@ -17,7 +17,9 @@ import 'package:kith/features/household/application/household_providers.dart';
 import 'package:kith/features/notifications/application/digest_controller.dart';
 import 'package:kith/features/notifications/application/notification_providers.dart';
 import 'package:kith/features/suggestions/application/suggestion_providers.dart';
+import 'package:kith/l10n/gen/app_localizations.dart';
 import 'package:kith/l10n/gen/app_localizations_en.dart';
+import 'package:kith/l10n/gen/app_localizations_es.dart';
 import 'package:kith/l10n/l10n_providers.dart';
 
 import '../../../helpers/fake_auth_service.dart';
@@ -60,7 +62,7 @@ void main() {
     );
   });
 
-  List<Override> overrides() => [
+  List<Override> overrides({AppLocalizations? l10n}) => [
     authServiceProvider.overrideWithValue(auth),
     householdRepositoryProvider.overrideWithValue(households),
     currentHouseholdIdProvider.overrideWithValue(householdId),
@@ -70,14 +72,14 @@ void main() {
     notificationSchedulerProvider.overrideWithValue(scheduler),
     // The digest is worded through the app's localizations, which resolve off
     // the platform in the app; pinned to English here like the clock is.
-    appLocalizationsProvider.overrideWithValue(AppLocalizationsEn()),
+    appLocalizationsProvider.overrideWithValue(l10n ?? AppLocalizationsEn()),
     clockProvider.overrideWithValue(Clock.fixed(now)),
   ];
 
   /// A container with the member roster and the contacts already streamed, so
   /// the controller reads settled data rather than an empty first frame.
-  Future<ProviderContainer> settled() async {
-    final container = ProviderContainer(overrides: overrides());
+  Future<ProviderContainer> settled({AppLocalizations? l10n}) async {
+    final container = ProviderContainer(overrides: overrides(l10n: l10n));
     addTearDown(container.dispose);
     // Listened to before they are awaited: providers auto-dispose without a
     // listener, and one disposed mid-load never emits at all.
@@ -137,7 +139,26 @@ void main() {
       expect(scheduler.lastScheduled?.at, DateTime(2026, 8, 23, 9));
       expect(scheduler.lastScheduled?.title, '1 person is overdue');
       expect(scheduler.lastScheduled?.body, 'Marcus Bell.');
+      expect(scheduler.lastScheduled?.channelName, 'Weekly digest');
       expect(container.read(digestControllerProvider).failure, isNull);
+    });
+
+    test('names the notification channel in the device language', () async {
+      seedOverdueContact();
+      final container = await settled(l10n: AppLocalizationsEs());
+
+      await container
+          .read(digestControllerProvider.notifier)
+          .setPreference(day: DateTime.sunday, hour: 9);
+
+      // What the phone's own notification settings will call this: the same
+      // localizations the digest text is written in, not a fixed English name.
+      expect(scheduler.lastScheduled?.title, '1 persona pendiente de ver');
+      expect(scheduler.lastScheduled?.channelName, 'Resumen semanal');
+      expect(
+        scheduler.lastScheduled?.channelDescription,
+        'Un resumen semanal de a quién llevas tiempo sin ver.',
+      );
     });
 
     test('stores nothing when the permission prompt is declined', () async {

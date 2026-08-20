@@ -630,6 +630,10 @@ class AppLocalizationsFr extends AppLocalizations {
   String get weeklyDigestTitle => 'Résumé hebdomadaire';
 
   @override
+  String get digestChannelDescription =>
+      'Un résumé hebdomadaire des personnes que vous n\'avez pas vues depuis trop longtemps.';
+
+  @override
   String get digestOff => 'Désactivé';
 
   @override

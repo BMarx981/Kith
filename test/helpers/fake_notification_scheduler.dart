@@ -10,7 +10,16 @@ import 'package:kith/data/services/notification_scheduler.dart';
 /// this, at that time, saying that; or cancel — and not the delivery.
 class FakeNotificationScheduler implements NotificationScheduler {
   /// Arguments of every [scheduleWeeklyDigest] call, oldest first.
-  final scheduled = <({DateTime at, String title, String body})>[];
+  final scheduled =
+      <
+        ({
+          DateTime at,
+          String title,
+          String body,
+          String channelName,
+          String channelDescription,
+        })
+      >[];
 
   /// How many times [cancelWeeklyDigest] was called.
   int cancelCount = 0;
@@ -27,8 +36,14 @@ class FakeNotificationScheduler implements NotificationScheduler {
   Failure? nextFailure;
 
   /// The most recent thing scheduled, or null if nothing is.
-  ({DateTime at, String title, String body})? get lastScheduled =>
-      scheduled.isEmpty ? null : scheduled.last;
+  ({
+    DateTime at,
+    String title,
+    String body,
+    String channelName,
+    String channelDescription,
+  })?
+  get lastScheduled => scheduled.isEmpty ? null : scheduled.last;
 
   @override
   Future<Result<bool>> requestPermission() async {
@@ -42,8 +57,16 @@ class FakeNotificationScheduler implements NotificationScheduler {
     required DateTime at,
     required String title,
     required String body,
+    required String channelName,
+    required String channelDescription,
   }) async {
-    scheduled.add((at: at, title: title, body: body));
+    scheduled.add((
+      at: at,
+      title: title,
+      body: body,
+      channelName: channelName,
+      channelDescription: channelDescription,
+    ));
     final failure = _takeFailure();
     return failure != null ? Err(failure) : const Ok(null);
   }

@@ -184,6 +184,7 @@
   "ownerChip": "Propriétaire",
 
   "weeklyDigestTitle": "Résumé hebdomadaire",
+  "digestChannelDescription": "Un résumé hebdomadaire des personnes que vous n'avez pas vues depuis trop longtemps.",
   "digestOff": "Désactivé",
   "digestDayAt": "{day} à {hour}",
   "digestDay": "Jour",
