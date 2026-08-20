@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:kith/features/contacts/domain/upcoming_birthday.dart';
 import 'package:kith/features/suggestions/engine/suggestion.dart';
+import 'package:kith/l10n/gen/app_localizations.dart';
 
 /// What one weekly digest notification says.
 ///
@@ -31,49 +32,44 @@ class WeeklyDigest {
   bool get isEmpty => overdue.isEmpty && birthdays.isEmpty;
 
   /// The notification's first line.
-  String get title {
-    if (overdue.isNotEmpty) {
-      return overdue.length == 1
-          ? '1 person is overdue'
-          : '${overdue.length} people are overdue';
-    }
+  String title(AppLocalizations l10n) {
+    if (overdue.isNotEmpty) return l10n.digestTitleOverdue(overdue.length);
     if (birthdays.isNotEmpty) {
-      return birthdays.length == 1
-          ? '1 birthday this week'
-          : '${birthdays.length} birthdays this week';
+      return l10n.digestTitleBirthdays(birthdays.length);
     }
     return '';
   }
 
   /// The notification's second line: who, and whose birthday.
-  String get body {
+  String body(AppLocalizations l10n) {
     final parts = <String>[
       if (overdue.isNotEmpty)
-        '${_joined([for (final s in overdue) s.contact.name])}.',
+        l10n.digestSentence(
+          _joined(l10n, [for (final s in overdue) s.contact.name]),
+        ),
       if (birthdays.length == 1)
-        birthdays.single.headline
+        birthdays.single.headline(l10n)
       else if (birthdays.length > 1)
-        _birthdayList,
+        l10n.digestBirthdayList(
+          _joined(l10n, [for (final b in birthdays) b.contact.name]),
+        ),
     ];
     return parts.join(' ');
   }
 
-  /// The several-birthdays line, kept out of [body]'s literal list so the two
-  /// halves of the sentence are not read as an accidental adjacent-string
-  /// concatenation.
-  String get _birthdayList =>
-      'Birthdays this week: '
-      '${_joined([for (final b in birthdays) b.contact.name])}.';
-
   /// [names] written as a list somebody would say out loud: "Marcus",
-  /// "Marcus and Ana", "Marcus, Ana and Ben".
-  static String _joined(List<String> names) => switch (names.length) {
-    0 => '',
-    1 => names.single,
-    2 => '${names[0]} and ${names[1]}',
-    _ =>
-      '${names.sublist(0, names.length - 1).join(', ')} and ${names.last}',
-  };
+  /// "Marcus and Ana", "Marcus, Ana and Ben". The joiners come from the ARB
+  /// files, because "and" and the list comma are the locale's to choose.
+  static String _joined(AppLocalizations l10n, List<String> names) =>
+      switch (names.length) {
+        0 => '',
+        1 => names.single,
+        2 => l10n.nameListPair(names[0], names[1]),
+        _ => l10n.nameListPair(
+          names.sublist(0, names.length - 1).join(l10n.nameListSeparator),
+          names.last,
+        ),
+      };
 
   @override
   bool operator ==(Object other) =>

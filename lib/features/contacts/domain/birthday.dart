@@ -3,6 +3,7 @@ import 'package:kith/core/result/failure.dart';
 import 'package:kith/core/result/result.dart';
 import 'package:kith/core/time/calendar_day.dart';
 import 'package:kith/features/hangouts/domain/day_label.dart';
+import 'package:kith/l10n/gen/app_localizations.dart';
 
 /// The day of the year somebody was born, with the year itself optional.
 ///
@@ -54,18 +55,34 @@ class Birthday {
   ///
   /// All-numeric slash forms are deliberately refused. `3/4/1988` is the 3rd
   /// of April to half the world and the 4th of March to the other half, and
-  /// the app carries no locale to break the tie, so a wrong date silently
-  /// stored is worse than a message asking for the month by name.
-  static Result<Birthday> parse(String input) {
+  /// even a known locale would not make a silently mis-stored date better
+  /// than a message asking for the month by name.
+  ///
+  /// [extraMonthNames] maps additional month spellings — the user's own
+  /// language's, lowercased — onto month numbers, so a French speaker can
+  /// type `14 mars`. English is always accepted, because it is what the wire
+  /// format's neighbours and half the world's phones use.
+  static Result<Birthday> parse(
+    String input, {
+    Map<String, int> extraMonthNames = const {},
+  }) {
     final text = input.trim().replaceAll(RegExp(r'\s+'), ' ');
     if (text.isEmpty) {
-      return const Err(ValidationFailure('Enter a birthday.'));
+      return const Err(
+        ValidationFailure(
+          'Enter a birthday.',
+          issue: ValidationIssue.birthdayEmpty,
+        ),
+      );
     }
 
-    final parsed = _readIso(text) ?? _readWritten(text);
+    final parsed = _readIso(text) ?? _readWritten(text, extraMonthNames);
     if (parsed == null) {
       return const Err(
-        ValidationFailure('Write it like 14 Mar, or 14 Mar 1988.'),
+        ValidationFailure(
+          'Write it like 14 Mar, or 14 Mar 1988.',
+          issue: ValidationIssue.birthdayUnreadable,
+        ),
       );
     }
     return _validate(parsed);
@@ -92,9 +109,9 @@ class Birthday {
       '-${_pad(month, 2)}-${_pad(day, 2)}';
 
   /// How the birthday is written in the UI: "14 Mar", or "14 Mar 1988".
-  String get label {
-    final head = '$day ${DayLabel.month(month)}';
-    return year == null ? head : '$head $year';
+  String label(AppLocalizations l10n) {
+    final head = l10n.birthdayLabel(day, DayLabel.month(month, l10n));
+    return year == null ? head : l10n.birthdayLabelWithYear(head, year!);
   }
 
   /// The next calendar day this birthday lands on, counting [from]'s own day
@@ -139,12 +156,21 @@ class Birthday {
 
   static Result<Birthday> _validate(Birthday birthday) {
     if (birthday.month < 1 || birthday.month > 12) {
-      return const Err(ValidationFailure('That is not a month.'));
+      return const Err(
+        ValidationFailure(
+          'That is not a month.',
+          issue: ValidationIssue.birthdayBadMonth,
+        ),
+      );
     }
     if (birthday.year case final year?) {
       if (year < minYear || year > maxYear) {
         return const Err(
-          ValidationFailure('Use a year between $minYear and $maxYear.'),
+          ValidationFailure(
+            'Use a year between $minYear and $maxYear.',
+            issue: ValidationIssue.birthdayYearOutOfRange,
+            args: {'min': minYear, 'max': maxYear},
+          ),
         );
       }
     }
@@ -155,7 +181,9 @@ class Birthday {
     if (birthday.day < 1 || birthday.day > last) {
       return Err(
         ValidationFailure(
-          '${DayLabel.month(birthday.month)} has no day ${birthday.day}.',
+          'Month ${birthday.month} has no day ${birthday.day}.',
+          issue: ValidationIssue.birthdayNoSuchDay,
+          args: {'month': birthday.month, 'day': birthday.day},
         ),
       );
     }
@@ -174,21 +202,22 @@ class Birthday {
     );
   }
 
-  /// Reads `14 Mar 1988`, `14 March`, `Mar 14` and `March 14, 1988`.
-  static Birthday? _readWritten(String text) {
+  /// Reads `14 Mar 1988`, `14 March`, `Mar 14` and `March 14, 1988`, and the
+  /// same shapes spelled with any month name in [extraMonthNames].
+  static Birthday? _readWritten(String text, Map<String, int> extraMonthNames) {
     const tail = r'(?:\s*,)?(?:\s+(\d{4}))?$';
     final dayFirst = RegExp(
-      r'^(\d{1,2}) ([A-Za-z]+)' + tail,
+      r'^(\d{1,2}) ([^\d\s,]+)' + tail,
     ).firstMatch(text);
     final monthFirst = RegExp(
-      r'^([A-Za-z]+) (\d{1,2})' + tail,
+      r'^([^\d\s,]+) (\d{1,2})' + tail,
     ).firstMatch(text);
 
     final match = dayFirst ?? monthFirst;
     if (match == null) return null;
     final name = (dayFirst != null ? match.group(2) : match.group(1))!;
     final day = (dayFirst != null ? match.group(1) : match.group(2))!;
-    final month = _monthNumber(name);
+    final month = _monthNumber(name, extraMonthNames);
     if (month == null) return null;
     return Birthday(
       month: month,
@@ -197,9 +226,11 @@ class Birthday {
     );
   }
 
-  /// The month [name] numbers, by full name or three-letter abbreviation.
-  static int? _monthNumber(String name) {
+  /// The month [name] numbers, by English full name or three-letter
+  /// abbreviation, or by any spelling in [extras].
+  static int? _monthNumber(String name, Map<String, int> extras) {
     final wanted = name.toLowerCase();
+    if (extras[wanted] case final month?) return month;
     for (var index = 0; index < _monthNames.length; index++) {
       final full = _monthNames[index];
       if (wanted == full || wanted == full.substring(0, 3)) return index + 1;

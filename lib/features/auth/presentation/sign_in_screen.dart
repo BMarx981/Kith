@@ -9,6 +9,8 @@ import 'package:kith/features/auth/application/sign_in_controller.dart';
 import 'package:kith/features/auth/application/sign_in_state.dart';
 import 'package:kith/features/auth/domain/credential_validator.dart';
 import 'package:kith/features/auth/presentation/auth_failure_message.dart';
+import 'package:kith/l10n/l10n.dart';
+import 'package:kith/l10n/validation_messages.dart';
 
 /// Entry point for unauthenticated users.
 ///
@@ -75,6 +77,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
     final state = ref.watch(signInControllerProvider);
     final isSignUp = state.mode == SignInMode.signUp;
 
@@ -82,7 +85,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
       final sentTo = next.passwordResetSentTo;
       if (sentTo == null || previous?.passwordResetSentTo == sentTo) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Password reset link sent to $sentTo.')),
+        SnackBar(content: Text(l10n.passwordResetSent(sentTo))),
       );
     });
 
@@ -101,9 +104,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
             ),
             const SizedBox(height: KithSpacing.xs),
             Text(
-              isSignUp
-                  ? 'Create an account, then start or join a household.'
-                  : 'Sign in to your household.',
+              isSignUp ? l10n.signUpTagline : l10n.signInTagline,
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
@@ -118,8 +119,9 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
               keyboardType: TextInputType.emailAddress,
               textInputAction: TextInputAction.next,
               autofillHints: const [AutofillHints.email],
-              decoration: const InputDecoration(labelText: 'Email'),
-              validator: CredentialValidator.email,
+              decoration: InputDecoration(labelText: l10n.emailLabel),
+              validator: (input) =>
+                  validationMessage(l10n, CredentialValidator.email(input)),
             ),
             const SizedBox(height: KithSpacing.md),
             TextFormField(
@@ -136,7 +138,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                   AutofillHints.password,
               ],
               decoration: InputDecoration(
-                labelText: 'Password',
+                labelText: l10n.passwordLabel,
                 suffixIcon: IconButton(
                   onPressed: () => setState(() {
                     _obscurePassword = !_obscurePassword;
@@ -146,18 +148,23 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                         ? KithIcons.showPassword
                         : KithIcons.hidePassword,
                   ),
-                  tooltip: _obscurePassword ? 'Show password' : 'Hide password',
+                  tooltip: _obscurePassword
+                      ? l10n.showPassword
+                      : l10n.hidePassword,
                 ),
               ),
-              validator: isSignUp
-                  ? CredentialValidator.newPassword
-                  : CredentialValidator.password,
+              validator: (input) => validationMessage(
+                l10n,
+                isSignUp
+                    ? CredentialValidator.newPassword(input)
+                    : CredentialValidator.password(input),
+              ),
               onFieldSubmitted: (_) => _submit(),
             ),
             if (state.failure case final failure?) ...[
               const SizedBox(height: KithSpacing.md),
               Text(
-                authFailureMessage(failure),
+                authFailureMessage(l10n, failure),
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.error,
@@ -192,13 +199,15 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                       dimension: 20,
                       child: CircularProgressIndicator(),
                     )
-                  : Text(isSignUp ? 'Create account' : 'Sign in'),
+                  : Text(
+                      isSignUp ? l10n.createAccountButton : l10n.signInButton,
+                    ),
             ),
             if (!isSignUp)
               TextButton(
                 key: SignInScreen.forgotPasswordKey,
                 onPressed: state.isSubmitting ? null : _sendPasswordReset,
-                child: const Text('Forgot your password?'),
+                child: Text(l10n.forgotPassword),
               ),
             const SizedBox(height: KithSpacing.md),
             // Google's own asset rather than an icon-font approximation: the
@@ -215,7 +224,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                 // does not follow the button's foreground like an icon would.
                 excludeFromSemantics: true,
               ),
-              label: const Text('Continue with Google'),
+              label: Text(l10n.continueWithGoogle),
             ),
             const SizedBox(height: KithSpacing.xs),
             TextButton(
@@ -228,7 +237,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                           isSignUp ? SignInMode.signIn : SignInMode.signUp,
                         ),
               child: Text(
-                isSignUp ? 'I already have an account' : 'Create an account',
+                isSignUp ? l10n.toggleHaveAccount : l10n.toggleCreateAccount,
               ),
             ),
           ],

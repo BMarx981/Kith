@@ -1,8 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kith/core/result/failure.dart';
 import 'package:kith/features/contacts/domain/birthday.dart';
+import 'package:kith/l10n/gen/app_localizations_en.dart';
 
 void main() {
+  final l10n = AppLocalizationsEn();
+
   group('parse', () {
     const cases = <String, Birthday>{
       '1988-03-14': Birthday(month: 3, day: 14, year: 1988),
@@ -109,10 +112,10 @@ void main() {
   group('label', () {
     test('names the day, and the year when it is known', () {
       expect(
-        const Birthday(month: 3, day: 14, year: 1988).label,
+        const Birthday(month: 3, day: 14, year: 1988).label(l10n),
         '14 Mar 1988',
       );
-      expect(const Birthday(month: 3, day: 14).label, '14 Mar');
+      expect(const Birthday(month: 3, day: 14).label(l10n), '14 Mar');
     });
   });
 

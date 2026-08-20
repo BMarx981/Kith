@@ -10,6 +10,7 @@ import 'package:kith/data/services/calendar_directory.dart';
 import 'package:kith/features/calendar/application/calendar_link_controller.dart';
 import 'package:kith/features/calendar/presentation/calendar_failure_message.dart';
 import 'package:kith/features/household/application/household_providers.dart';
+import 'package:kith/l10n/l10n.dart';
 
 /// Where a household points Kith at the calendar its plans belong on.
 ///
@@ -55,7 +56,7 @@ class _CalendarSettingsScreenState
     final householdId = ref.watch(currentHouseholdIdProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Calendar')),
+      appBar: AppBar(title: Text(context.l10n.calendarTitle)),
       // Null only in the beat between the guard letting the user through and
       // this screen building, or just after they were removed from it.
       body: householdId == null
@@ -105,6 +106,7 @@ class _LinkedCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
     final name = household?.calendarName;
 
     return Padding(
@@ -117,14 +119,12 @@ class _LinkedCard extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Household calendar', style: theme.textTheme.titleMedium),
+          Text(l10n.householdCalendarTitle, style: theme.textTheme.titleMedium),
           const SizedBox(height: KithSpacing.xxs),
           Text(
             name == null
-                ? 'No calendar linked. Plans are kept in Kith and go nowhere '
-                      'else.'
-                : 'Plans go on "$name". Anything subscribed to that calendar, '
-                      'the frame included, shows them too.',
+                ? l10n.calendarNoneLinkedBody
+                : l10n.calendarLinkedBody(name),
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -136,7 +136,7 @@ class _LinkedCard extends ConsumerWidget {
               child: TextButton(
                 key: CalendarSettingsScreen.unlinkKey,
                 onPressed: () => _unlink(context, ref),
-                child: const Text('Unlink'),
+                child: Text(l10n.unlinkButton),
               ),
             ),
           ],
@@ -147,20 +147,14 @@ class _LinkedCard extends ConsumerWidget {
 
   /// Stops writing to the calendar, leaving the events already on it alone.
   Future<void> _unlink(BuildContext context, WidgetRef ref) async {
+    final message = context.l10n.calendarUnlinked;
     final done = await ref
         .read(calendarLinkControllerProvider.notifier)
         .unlink(householdId: householdId);
     if (!context.mounted || !done) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Calendar unlinked. Events already on it were left where they '
-            'are.',
-          ),
-        ),
-      );
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 }
 
@@ -180,9 +174,7 @@ class _Connect extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Connect your Google account to choose a calendar. Kith reads the '
-            'list of calendars you already have, and writes only the plans '
-            'you make here.',
+            context.l10n.calendarConnectBody,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -197,7 +189,7 @@ class _Connect extends ConsumerWidget {
                         .read(calendarLinkControllerProvider.notifier)
                         .connect(),
                   ),
-            child: const Text('Connect Google Calendar'),
+            child: Text(context.l10n.calendarConnectButton),
           ),
         ],
       ),
@@ -227,9 +219,7 @@ class _Picker extends ConsumerWidget {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: KithSpacing.md),
         child: Text(
-          'This account has no calendar Kith can write to. Make one in Google '
-          'Calendar, or ask whoever owns the household calendar to share it '
-          'with you.',
+          context.l10n.calendarNoneWritable,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
@@ -243,7 +233,7 @@ class _Picker extends ConsumerWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: KithSpacing.md),
           child: Text(
-            'Your calendars',
+            context.l10n.yourCalendars,
             style: theme.textTheme.titleSmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -256,10 +246,10 @@ class _Picker extends ConsumerWidget {
             leading: const Icon(KithIcons.calendar),
             title: Text(calendar.name),
             subtitle: calendar.isPrimary
-                ? const Text('Your own calendar')
+                ? Text(context.l10n.calendarPrimary)
                 : null,
             trailing: calendar.id == linkedId
-                ? const Chip(label: Text('Linked'))
+                ? Chip(label: Text(context.l10n.linkedChip))
                 : null,
             enabled: !isBusy,
             // The linked one is not dimmed, only inert: it is the answer
@@ -278,17 +268,14 @@ class _Picker extends ConsumerWidget {
     WidgetRef ref,
     CalendarListing calendar,
   ) async {
+    final message = context.l10n.calendarNowLinked(calendar.name);
     final done = await ref
         .read(calendarLinkControllerProvider.notifier)
         .link(householdId: householdId, calendar: calendar);
     if (!context.mounted || !done) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text('Plans now go on "${calendar.name}".'),
-        ),
-      );
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 }
 
@@ -308,7 +295,7 @@ class _Message extends StatelessWidget {
         0,
       ),
       child: Text(
-        calendarFailureMessage(failure),
+        calendarFailureMessage(context.l10n, failure),
         style: theme.textTheme.bodyMedium?.copyWith(
           color: theme.colorScheme.error,
         ),

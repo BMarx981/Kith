@@ -6,6 +6,7 @@ import 'package:kith/features/household/application/household_providers.dart';
 import 'package:kith/features/notifications/application/digest_state.dart';
 import 'package:kith/features/notifications/application/notification_providers.dart';
 import 'package:kith/features/notifications/domain/digest_schedule.dart';
+import 'package:kith/l10n/l10n_providers.dart';
 
 /// Turns the weekly digest on and off, and keeps what is scheduled current.
 ///
@@ -107,14 +108,17 @@ class DigestController extends Notifier<DigestState> {
       return;
     }
 
+    // The device's language rather than a stored preference: a notification
+    // reads in whatever the phone reads in, like the rest of the app.
+    final l10n = ref.read(appLocalizationsProvider);
     final scheduled = await scheduler.scheduleWeeklyDigest(
       at: DigestSchedule.next(
         weekday: day,
         hour: hour,
         from: ref.read(clockProvider).now(),
       ),
-      title: digest.title,
-      body: digest.body,
+      title: digest.title(l10n),
+      body: digest.body(l10n),
     );
     if (scheduled case Err(:final failure)) {
       state = state.copyWith(failure: failure);

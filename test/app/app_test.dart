@@ -87,7 +87,10 @@ void main() {
 
       final app = tester.widget<MaterialApp>(find.byType(MaterialApp));
 
-      expect(app.title, 'Kith');
+      // The title is generated per locale rather than fixed, so it is asked
+      // for through a context that can look the localizations up.
+      final context = tester.element(find.byType(Navigator).first);
+      expect(app.onGenerateTitle?.call(context), 'Kith');
       expect(app.theme?.colorScheme.brightness, Brightness.light);
       expect(app.darkTheme?.colorScheme.brightness, Brightness.dark);
       expect(app.theme?.extension<FreshnessColors>(), isNotNull);

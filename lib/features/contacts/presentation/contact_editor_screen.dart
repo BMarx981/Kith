@@ -14,6 +14,8 @@ import 'package:kith/features/contacts/domain/contact_draft.dart';
 import 'package:kith/features/contacts/domain/contact_field_validator.dart';
 import 'package:kith/features/contacts/presentation/contact_failure_message.dart';
 import 'package:kith/features/household/application/household_providers.dart';
+import 'package:kith/l10n/l10n.dart';
+import 'package:kith/l10n/validation_messages.dart';
 import 'package:kith/routing/app_router.dart';
 
 /// Adds a contact, or edits one that already exists.
@@ -56,15 +58,18 @@ class ContactEditorScreen extends ConsumerWidget {
         ? const AsyncLoading<List<Contact>>()
         : ref.watch(contactsProvider(householdId));
 
+    final l10n = context.l10n;
     return Scaffold(
       appBar: AppBar(
-        title: Text(contactId == null ? 'Add a contact' : 'Edit contact'),
+        title: Text(
+          contactId == null ? l10n.addContactTitle : l10n.editContactTitle,
+        ),
       ),
       body: switch ((types, contacts)) {
         (AsyncError(:final error), _) ||
-        (_, AsyncError(:final error)) => _Message(_messageFor(error)),
+        (_, AsyncError(:final error)) => _Message(_messageFor(l10n, error)),
         (AsyncData(value: final labels), AsyncData(value: final all)) =>
-          _resolve(householdId!, labels, all),
+          _resolve(l10n, householdId!, labels, all),
         _ => const Center(child: CircularProgressIndicator()),
       },
     );
@@ -75,20 +80,19 @@ class ContactEditorScreen extends ConsumerWidget {
   /// A household with no labels cannot file a contact anywhere, and a contact
   /// that was deleted while the editor was open has nothing left to edit.
   Widget _resolve(
+    AppLocalizations l10n,
     String householdId,
     List<RelationshipType> labels,
     List<Contact> all,
   ) {
     if (labels.isEmpty) {
-      return const _Message(
-        'Add a relationship label first, so contacts have somewhere to go.',
-      );
+      return _Message(l10n.emptyNeedsLabel);
     }
     final existing = contactId == null
         ? null
         : all.where((contact) => contact.id == contactId).firstOrNull;
     if (contactId != null && existing == null) {
-      return const _Message('That contact is no longer here.');
+      return _Message(l10n.contactGone);
     }
     return _ContactForm(
       householdId: householdId,
@@ -97,10 +101,11 @@ class ContactEditorScreen extends ConsumerWidget {
     );
   }
 
-  static String _messageFor(Object error) => switch (error) {
-    final Failure failure => contactFailureMessage(failure),
-    _ => 'Something went wrong. Try again.',
-  };
+  static String _messageFor(AppLocalizations l10n, Object error) =>
+      switch (error) {
+        final Failure failure => contactFailureMessage(l10n, failure),
+        _ => l10n.errorGeneric,
+      };
 }
 
 class _ContactForm extends ConsumerStatefulWidget {
@@ -138,6 +143,12 @@ class _ContactFormState extends ConsumerState<_ContactForm> {
   late bool _isCustomCadence;
   late Cadence _cadence;
 
+  /// Whether [_birthday] has been given its initial text. Done in
+  /// [didChangeDependencies] rather than [initState] because writing the
+  /// stored birthday back out needs the localizations, which an initState
+  /// may not look up.
+  var _birthdayInitialised = false;
+
   @override
   void initState() {
     super.initState();
@@ -148,7 +159,7 @@ class _ContactFormState extends ConsumerState<_ContactForm> {
     _address = TextEditingController(text: existing?.address ?? '');
     _guardianName = TextEditingController(text: existing?.guardianName ?? '');
     _guardianPhone = TextEditingController(text: existing?.guardianPhone ?? '');
-    _birthday = TextEditingController(text: existing?.birthday?.label ?? '');
+    _birthday = TextEditingController();
     _notes = TextEditingController(text: existing?.notes ?? '');
     _tags = TextEditingController(
       text: ContactFieldValidator.formatTags(existing?.tags ?? const []),
@@ -165,6 +176,15 @@ class _ContactFormState extends ConsumerState<_ContactForm> {
             .firstOrNull
             ?.id ??
         widget.labels.first.id;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_birthdayInitialised) {
+      _birthdayInitialised = true;
+      _birthday.text = widget.existing?.birthday?.label(context.l10n) ?? '';
+    }
   }
 
   @override
@@ -189,6 +209,7 @@ class _ContactFormState extends ConsumerState<_ContactForm> {
   Future<void> _save() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
+    final monthNames = birthdayMonthNames(context.l10n);
     final saved = await ref
         .read(contactEditorControllerProvider.notifier)
         .save(
@@ -206,7 +227,10 @@ class _ContactFormState extends ConsumerState<_ContactForm> {
             address: _address.text,
             guardianName: _guardianName.text,
             guardianPhone: _guardianPhone.text,
-            birthday: ContactFieldValidator.parseBirthday(_birthday.text),
+            birthday: ContactFieldValidator.parseBirthday(
+              _birthday.text,
+              extraMonthNames: monthNames,
+            ),
             notes: _notes.text,
             tags: ContactFieldValidator.parseTags(_tags.text),
           ),
@@ -231,6 +255,7 @@ class _ContactFormState extends ConsumerState<_ContactForm> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
     final state = ref.watch(contactEditorControllerProvider);
     final existing = widget.existing;
 
@@ -244,13 +269,14 @@ class _ContactFormState extends ConsumerState<_ContactForm> {
               controller: _name,
               enabled: !state.isSubmitting,
               textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(labelText: 'Name'),
-              validator: ContactFieldValidator.name,
+              decoration: InputDecoration(labelText: l10n.nameLabel),
+              validator: (input) =>
+                  validationMessage(l10n, ContactFieldValidator.name(input)),
             ),
             const SizedBox(height: KithSpacing.md),
             DropdownButtonFormField<String>(
               initialValue: _relationshipTypeId,
-              decoration: const InputDecoration(labelText: 'Relationship'),
+              decoration: InputDecoration(labelText: l10n.relationshipLabel),
               items: [
                 for (final label in widget.labels)
                   DropdownMenuItem(value: label.id, child: Text(label.name)),
@@ -262,7 +288,7 @@ class _ContactFormState extends ConsumerState<_ContactForm> {
                     ),
             ),
             const SizedBox(height: KithSpacing.lg),
-            const _SectionLabel('How often you want to see them'),
+            _SectionLabel(l10n.cadenceSection),
             const SizedBox(height: KithSpacing.xs),
             _CadenceChoice(
               cadence: _cadence,
@@ -280,21 +306,24 @@ class _ContactFormState extends ConsumerState<_ContactForm> {
                 controller: _customCadence,
                 enabled: !state.isSubmitting,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Every how many days',
+                decoration: InputDecoration(
+                  labelText: l10n.customCadenceLabel,
                 ),
-                validator: ContactFieldValidator.customCadence,
+                validator: (input) => validationMessage(
+                  l10n,
+                  ContactFieldValidator.customCadence(input),
+                ),
               ),
             ],
             const SizedBox(height: KithSpacing.lg),
-            const _SectionLabel('Priority'),
+            _SectionLabel(l10n.prioritySection),
             const SizedBox(height: KithSpacing.xs),
             Row(
               spacing: KithSpacing.xs,
               children: [
                 for (final priority in ContactPriority.values)
                   ChoiceChip(
-                    label: Text(priority.label),
+                    label: Text(priority.label(l10n)),
                     selected: _priority == priority,
                     onSelected: state.isSubmitting
                         ? null
@@ -303,30 +332,30 @@ class _ContactFormState extends ConsumerState<_ContactForm> {
               ],
             ),
             const SizedBox(height: KithSpacing.lg),
-            const _SectionLabel('How to reach them'),
+            _SectionLabel(l10n.reachSection),
             const SizedBox(height: KithSpacing.xs),
             _DetailField(
               controller: _phone,
-              label: 'Phone',
+              label: l10n.phoneLabel,
               enabled: !state.isSubmitting,
               keyboardType: TextInputType.phone,
             ),
             _DetailField(
               controller: _email,
-              label: 'Email',
+              label: l10n.emailLabel,
               enabled: !state.isSubmitting,
               keyboardType: TextInputType.emailAddress,
             ),
             _DetailField(
               controller: _address,
-              label: 'Address',
+              label: l10n.addressLabel,
               enabled: !state.isSubmitting,
             ),
             const SizedBox(height: KithSpacing.lg),
-            const _SectionLabel('Parent or guardian'),
+            _SectionLabel(l10n.guardianSection),
             const SizedBox(height: KithSpacing.xxs),
             Text(
-              "For a kid's friend, the person you actually text.",
+              l10n.guardianHelper,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -334,13 +363,13 @@ class _ContactFormState extends ConsumerState<_ContactForm> {
             const SizedBox(height: KithSpacing.xs),
             _DetailField(
               controller: _guardianName,
-              label: 'Guardian name',
+              label: l10n.guardianNameLabel,
               enabled: !state.isSubmitting,
               textCapitalization: TextCapitalization.words,
             ),
             _DetailField(
               controller: _guardianPhone,
-              label: 'Guardian phone',
+              label: l10n.guardianPhoneLabel,
               enabled: !state.isSubmitting,
               keyboardType: TextInputType.phone,
             ),
@@ -350,22 +379,28 @@ class _ContactFormState extends ConsumerState<_ContactForm> {
               controller: _birthday,
               enabled: !state.isSubmitting,
               textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(
-                labelText: 'Birthday',
-                helperText:
-                    'Like 14 Mar, or 14 Mar 1988. The year is optional.',
+              decoration: InputDecoration(
+                labelText: l10n.birthdayFieldLabel,
+                helperText: l10n.birthdayFieldHelper,
               ),
-              validator: ContactFieldValidator.birthday,
+              validator: (input) => validationMessage(
+                l10n,
+                ContactFieldValidator.birthday(
+                  input,
+                  extraMonthNames: birthdayMonthNames(l10n),
+                ),
+              ),
             ),
             const SizedBox(height: KithSpacing.md),
             TextFormField(
               controller: _tags,
               enabled: !state.isSubmitting,
-              decoration: const InputDecoration(
-                labelText: 'Tags',
-                helperText: 'Separate tags with commas.',
+              decoration: InputDecoration(
+                labelText: l10n.tagsLabel,
+                helperText: l10n.tagsHelper,
               ),
-              validator: ContactFieldValidator.tags,
+              validator: (input) =>
+                  validationMessage(l10n, ContactFieldValidator.tags(input)),
             ),
             const SizedBox(height: KithSpacing.md),
             TextFormField(
@@ -373,13 +408,14 @@ class _ContactFormState extends ConsumerState<_ContactForm> {
               enabled: !state.isSubmitting,
               minLines: 3,
               maxLines: 6,
-              decoration: const InputDecoration(labelText: 'Notes'),
-              validator: ContactFieldValidator.notes,
+              decoration: InputDecoration(labelText: l10n.notesLabel),
+              validator: (input) =>
+                  validationMessage(l10n, ContactFieldValidator.notes(input)),
             ),
             if (state.failure case final failure?) ...[
               const SizedBox(height: KithSpacing.md),
               Text(
-                contactFailureMessage(failure),
+                contactFailureMessage(l10n, failure),
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.error,
                 ),
@@ -394,7 +430,7 @@ class _ContactFormState extends ConsumerState<_ContactForm> {
                       dimension: KithSpacing.md,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Text('Save'),
+                  : Text(l10n.saveButton),
             ),
             if (existing != null) ...[
               const SizedBox(height: KithSpacing.xs),
@@ -406,13 +442,15 @@ class _ContactFormState extends ConsumerState<_ContactForm> {
                         HangoutsRoute(contactId: existing.id),
                       ),
                 icon: const Icon(KithIcons.history),
-                label: const Text('See their hangouts'),
+                label: Text(l10n.seeTheirHangouts),
               ),
               TextButton(
                 key: ContactEditorScreen.archiveKey,
                 onPressed: state.isSubmitting ? null : _toggleArchived,
                 child: Text(
-                  existing.isArchived ? 'Restore contact' : 'Archive contact',
+                  existing.isArchived
+                      ? l10n.restoreContact
+                      : l10n.archiveContact,
                 ),
               ),
             ],
@@ -448,7 +486,10 @@ class _DetailField extends StatelessWidget {
       keyboardType: keyboardType,
       textCapitalization: textCapitalization,
       decoration: InputDecoration(labelText: label),
-      validator: ContactFieldValidator.detail,
+      validator: (input) => validationMessage(
+        context.l10n,
+        ContactFieldValidator.detail(input),
+      ),
     ),
   );
 }
@@ -475,14 +516,14 @@ class _CadenceChoice extends StatelessWidget {
     children: [
       for (final preset in Cadence.presets)
         ChoiceChip(
-          label: Text(preset.label),
+          label: Text(preset.label(context.l10n)),
           selected: !isCustom && cadence == preset,
           onSelected: enabled
               ? (_) => onChanged(cadence: preset, isCustom: false)
               : null,
         ),
       ChoiceChip(
-        label: const Text('Custom'),
+        label: Text(context.l10n.customCadenceChip),
         selected: isCustom,
         onSelected: enabled
             ? (_) => onChanged(cadence: cadence, isCustom: true)

@@ -7,6 +7,7 @@ import 'package:kith/features/contacts/domain/upcoming_birthday.dart';
 import 'package:kith/features/hangouts/domain/freshness.dart';
 import 'package:kith/features/notifications/domain/weekly_digest.dart';
 import 'package:kith/features/suggestions/engine/suggestion.dart';
+import 'package:kith/l10n/gen/app_localizations_en.dart';
 
 /// 2026-08-18, a Tuesday.
 final _now = DateTime.utc(2026, 8, 18, 9);
@@ -46,6 +47,8 @@ List<UpcomingBirthday> _birthdays(Map<String, Birthday> people) =>
     );
 
 void main() {
+  final l10n = AppLocalizationsEn();
+
   group('isEmpty', () {
     test('is empty with nothing to say', () {
       expect(
@@ -78,14 +81,17 @@ void main() {
   group('title', () {
     test('counts the overdue, singular and plural', () {
       expect(
-        WeeklyDigest(overdue: [_overdue('Marcus')], birthdays: const []).title,
+        WeeklyDigest(
+          overdue: [_overdue('Marcus')],
+          birthdays: const [],
+        ).title(l10n),
         '1 person is overdue',
       );
       expect(
         WeeklyDigest(
           overdue: [_overdue('Marcus'), _overdue('Ana'), _overdue('Ben')],
           birthdays: const [],
-        ).title,
+        ).title(l10n),
         '3 people are overdue',
       );
     });
@@ -95,7 +101,7 @@ void main() {
         WeeklyDigest(
           overdue: const [],
           birthdays: _birthdays({'Ana': const Birthday(month: 8, day: 20)}),
-        ).title,
+        ).title(l10n),
         '1 birthday this week',
       );
       expect(
@@ -105,7 +111,7 @@ void main() {
             'Ana': const Birthday(month: 8, day: 20),
             'Ben': const Birthday(month: 8, day: 21),
           }),
-        ).title,
+        ).title(l10n),
         '2 birthdays this week',
       );
     });
@@ -115,34 +121,37 @@ void main() {
         WeeklyDigest(
           overdue: [_overdue('Marcus')],
           birthdays: _birthdays({'Ana': const Birthday(month: 8, day: 20)}),
-        ).title,
+        ).title(l10n),
         '1 person is overdue',
       );
     });
 
     test('is blank when there is nothing to report', () {
-      expect(const WeeklyDigest(overdue: [], birthdays: []).title, '');
+      expect(const WeeklyDigest(overdue: [], birthdays: []).title(l10n), '');
     });
   });
 
   group('body', () {
     test('names one, two and three people the way you would say them', () {
       expect(
-        WeeklyDigest(overdue: [_overdue('Marcus')], birthdays: const []).body,
+        WeeklyDigest(
+          overdue: [_overdue('Marcus')],
+          birthdays: const [],
+        ).body(l10n),
         'Marcus.',
       );
       expect(
         WeeklyDigest(
           overdue: [_overdue('Marcus'), _overdue('Ana')],
           birthdays: const [],
-        ).body,
+        ).body(l10n),
         'Marcus and Ana.',
       );
       expect(
         WeeklyDigest(
           overdue: [_overdue('Marcus'), _overdue('Ana'), _overdue('Ben')],
           birthdays: const [],
-        ).body,
+        ).body(l10n),
         'Marcus, Ana and Ben.',
       );
     });
@@ -152,7 +161,7 @@ void main() {
         WeeklyDigest(
           overdue: [_overdue('Marcus')],
           birthdays: _birthdays({'Ana': const Birthday(month: 8, day: 22)}),
-        ).body,
+        ).body(l10n),
         "Marcus. Ana's birthday is on Sat 22 Aug.",
       );
     });
@@ -165,13 +174,13 @@ void main() {
             'Ana': const Birthday(month: 8, day: 20),
             'Ben': const Birthday(month: 8, day: 21),
           }),
-        ).body,
+        ).body(l10n),
         'Birthdays this week: Ana and Ben.',
       );
     });
 
     test('is blank with nothing to report', () {
-      expect(const WeeklyDigest(overdue: [], birthdays: []).body, '');
+      expect(const WeeklyDigest(overdue: [], birthdays: []).body(l10n), '');
     });
   });
 

@@ -54,17 +54,30 @@ class InviteCode {
         .join();
 
     if (normalised.isEmpty) {
-      return const Err(ValidationFailure('Enter an invite code.'));
+      return const Err(
+        ValidationFailure(
+          'Enter an invite code.',
+          issue: ValidationIssue.inviteCodeEmpty,
+        ),
+      );
     }
     if (normalised.length != length) {
       return const Err(
-        ValidationFailure('Invite codes are $length characters long.'),
+        ValidationFailure(
+          'Invite codes are $length characters long.',
+          issue: ValidationIssue.inviteCodeWrongLength,
+          args: {'length': length},
+        ),
       );
     }
     for (final char in normalised.split('')) {
       if (!alphabet.contains(char)) {
         return Err(
-          ValidationFailure('"$char" is not part of an invite code.'),
+          ValidationFailure(
+            '"$char" is not part of an invite code.',
+            issue: ValidationIssue.inviteCodeBadCharacter,
+            args: {'char': char},
+          ),
         );
       }
     }

@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:kith/core/time/calendar_day.dart';
 import 'package:kith/features/contacts/domain/cadence.dart';
+import 'package:kith/l10n/gen/app_localizations.dart';
 
 /// Where a contact sits against the cadence you set for them.
 ///
@@ -95,15 +96,19 @@ class Freshness {
   double get sweep => (ratio ?? 0).clamp(0.0, 1.0);
 
   /// How long it has been, written the way a person would say it.
-  String get lastSeenLabel => switch (daysSince) {
-    null => 'Never logged',
-    0 => 'Seen today',
-    1 => 'Seen yesterday',
-    final days when days < 7 => 'Seen $days days ago',
+  ///
+  /// A method taking [l10n] rather than a getter: which stretch of time this
+  /// is stays domain logic, but the wording of each stretch belongs to the
+  /// locale.
+  String lastSeenLabel(AppLocalizations l10n) => switch (daysSince) {
+    null => l10n.seenNever,
+    0 => l10n.seenToday,
+    1 => l10n.seenYesterday,
+    final days when days < 7 => l10n.seenDaysAgo(days),
     // "Seen a week ago" would be the elapsed phrase, but a week and a half is
     // still last week to a person, so this stretch keeps its own wording.
-    final days when days < 14 => 'Seen last week',
-    _ => 'Seen $elapsedLabel ago',
+    final days when days < 14 => l10n.seenLastWeek,
+    _ => l10n.seenAgo(elapsedLabel(l10n)!),
   };
 
   /// The bare span since the last hangout — "6 weeks", "3 days" — or null
@@ -113,15 +118,15 @@ class Freshness {
   /// puts it somewhere other than the end: "It's been 6 weeks" as much as
   /// "Seen 6 weeks ago". Coarsens as it lengthens, because nobody wants the
   /// number of days since they last saw someone two years ago.
-  String? get elapsedLabel => switch (daysSince) {
+  String? elapsedLabel(AppLocalizations l10n) => switch (daysSince) {
     null => null,
-    0 => 'less than a day',
-    1 => 'a day',
-    final days when days < 7 => '$days days',
-    final days when days < 14 => 'a week',
-    final days when days < 60 => '${(days / 7).round()} weeks',
-    final days when days < 365 => '${(days / 30).round()} months',
-    final days => '${(days / 365).floor()}+ years',
+    0 => l10n.elapsedLessThanADay,
+    1 => l10n.elapsedADay,
+    final days when days < 7 => l10n.elapsedDays(days),
+    final days when days < 14 => l10n.elapsedAWeek,
+    final days when days < 60 => l10n.elapsedWeeks((days / 7).round()),
+    final days when days < 365 => l10n.elapsedMonths((days / 30).round()),
+    final days => l10n.elapsedYears((days / 365).floor()),
   };
 
   /// Which reading a [ratio] falls in. The boundaries belong to `due` at both

@@ -15,6 +15,7 @@ import 'package:kith/features/hangouts/domain/day_label.dart';
 import 'package:kith/features/hangouts/domain/freshness_index.dart';
 import 'package:kith/features/hangouts/presentation/hangout_failure_message.dart';
 import 'package:kith/features/household/application/household_providers.dart';
+import 'package:kith/l10n/l10n.dart';
 import 'package:kith/routing/app_router.dart';
 
 /// The household's hangouts, most recent first.
@@ -40,7 +41,7 @@ class HangoutsScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: contactId == null || householdId == null
-            ? const Text('Hangouts')
+            ? Text(context.l10n.hangoutsTitle)
             : _Title(householdId: householdId, contactId: contactId!),
       ),
       floatingActionButton: householdId == null
@@ -50,7 +51,7 @@ class HangoutsScreen extends ConsumerWidget {
               onPressed: () => context.router.push(
                 HangoutEditorRoute(prefilledContactId: contactId),
               ),
-              tooltip: 'Log a hangout',
+              tooltip: context.l10n.logHangoutTitle,
               child: const Icon(KithIcons.add),
             ),
       // Null only in the beat between the guard letting the user through and
@@ -82,7 +83,11 @@ class _Title extends ConsumerWidget {
         .firstOrNull
         ?.name;
 
-    return Text(name == null ? 'Hangouts' : 'Hangouts with $name');
+    return Text(
+      name == null
+          ? context.l10n.hangoutsTitle
+          : context.l10n.hangoutsWithTitle(name),
+    );
   }
 }
 
@@ -100,7 +105,9 @@ class _HangoutsBody extends ConsumerWidget {
 
     return switch ((hangouts, contacts)) {
       (AsyncError(:final error), _) ||
-      (_, AsyncError(:final error)) => _Message(_messageFor(error)),
+      (_, AsyncError(:final error)) => _Message(
+        _messageFor(context.l10n, error),
+      ),
       (AsyncData(value: final logged), AsyncData(value: final people)) =>
         _Timeline(
           householdId: householdId,
@@ -123,10 +130,11 @@ class _HangoutsBody extends ConsumerWidget {
 
   /// Streams surface domain failures; anything else is a bug rather than a
   /// condition the user can act on, and reads as the generic message.
-  static String _messageFor(Object error) => switch (error) {
-    final Failure failure => hangoutFailureMessage(failure),
-    _ => 'Something went wrong. Try again.',
-  };
+  static String _messageFor(AppLocalizations l10n, Object error) =>
+      switch (error) {
+        final Failure failure => hangoutFailureMessage(l10n, failure),
+        _ => l10n.errorGeneric,
+      };
 }
 
 class _Timeline extends ConsumerWidget {
@@ -156,8 +164,8 @@ class _Timeline extends ConsumerWidget {
           Expanded(
             child: _Empty(
               text: subject == null
-                  ? 'Nothing logged yet. The first hangout goes here.'
-                  : 'Nothing logged with ${subject.name} yet.',
+                  ? context.l10n.hangoutsEmpty
+                  : context.l10n.reasonNothingLogged(subject.name),
             ),
           ),
         ],
@@ -184,7 +192,13 @@ class _Timeline extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (startsDay[at])
-              _DayHeader(label: DayLabel.of(hangout.occurredOn, today: today)),
+              _DayHeader(
+                label: DayLabel.of(
+                  hangout.occurredOn,
+                  today: today,
+                  l10n: context.l10n,
+                ),
+              ),
             _HangoutRow(
               hangout: hangout,
               contacts: contacts,
@@ -226,7 +240,8 @@ class _ContactHeader extends ConsumerWidget {
               children: [
                 Text(contact.name, style: theme.textTheme.titleMedium),
                 Text(
-                  '${freshness.lastSeenLabel}  ·  ${contact.cadence.label}',
+                  '${freshness.lastSeenLabel(context.l10n)}  ·  '
+                  '${contact.cadence.label(context.l10n)}',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -281,15 +296,17 @@ class _HangoutRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
     final names = [
       for (final id in hangout.contactIds)
-        if (id != omitContactId) contacts[id]?.name ?? 'Someone since removed',
+        if (id != omitContactId)
+          contacts[id]?.name ?? l10n.someoneSinceRemoved,
     ];
     final attendees = [
       for (final id in hangout.attendeeIds) ?members[id]?.displayName,
     ];
     final detail = [
-      if (attendees.isNotEmpty) 'With ${_joined(attendees)}',
+      if (attendees.isNotEmpty) l10n.withAttendees(_joined(l10n, attendees)),
       ?hangout.note,
     ].join('  ·  ');
 
@@ -297,18 +314,24 @@ class _HangoutRow extends StatelessWidget {
       onTap: () =>
           context.router.push(HangoutEditorRoute(hangoutId: hangout.id)),
       leading: Icon(KithIcons.hangout, color: theme.colorScheme.outline),
-      title: Text(names.isEmpty ? 'Just the two of you' : _joined(names)),
+      title: Text(
+        names.isEmpty ? l10n.justTheTwoOfYou : _joined(l10n, names),
+      ),
       subtitle: detail.isEmpty ? null : Text(detail),
       isThreeLine: false,
     );
   }
 
   /// "Ana", "Ana and Bo", "Ana, Bo and Cass" — the way a person lists people.
-  static String _joined(List<String> names) => switch (names.length) {
-    0 => '',
-    1 => names.first,
-    _ => '${names.sublist(0, names.length - 1).join(', ')} and ${names.last}',
-  };
+  static String _joined(AppLocalizations l10n, List<String> names) =>
+      switch (names.length) {
+        0 => '',
+        1 => names.first,
+        _ => l10n.nameListPair(
+          names.sublist(0, names.length - 1).join(l10n.nameListSeparator),
+          names.last,
+        ),
+      };
 }
 
 class _Empty extends StatelessWidget {

@@ -3,6 +3,7 @@ import 'package:kith/core/time/calendar_day.dart';
 import 'package:kith/data/models/contact.dart';
 import 'package:kith/features/contacts/domain/birthday.dart';
 import 'package:kith/features/hangouts/domain/day_label.dart';
+import 'package:kith/l10n/gen/app_localizations.dart';
 
 /// A birthday that is coming up, and whose it is.
 ///
@@ -39,15 +40,17 @@ class UpcomingBirthday {
 
   /// The birthday in one line, name included, so the same sentence works on a
   /// card that already shows the name and in a digest that does not.
-  String get headline {
+  String headline(AppLocalizations l10n) {
     final when = switch (daysUntil) {
-      0 => 'today',
-      1 => 'tomorrow',
-      _ => 'on ${DayLabel.full(on, withYear: on.year != _fromYear)}',
+      0 => l10n.whenToday,
+      1 => l10n.whenTomorrow,
+      _ => l10n.whenOnDay(
+        DayLabel.full(on, l10n: l10n, withYear: on.year != _fromYear),
+      ),
     };
     return turningAge == null
-        ? "${contact.name}'s birthday is $when."
-        : '${contact.name} turns $turningAge $when.';
+        ? l10n.birthdayHeadline(contact.name, when)
+        : l10n.birthdayHeadlineTurning(contact.name, turningAge!, when);
   }
 
   /// The year the reading was taken in, recovered from [on] and [daysUntil].

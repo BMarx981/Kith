@@ -2,8 +2,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kith/core/result/failure.dart';
 import 'package:kith/core/result/result.dart';
 import 'package:kith/features/contacts/domain/cadence.dart';
+import 'package:kith/l10n/gen/app_localizations_en.dart';
+import 'package:kith/l10n/gen/app_localizations_es.dart';
 
 void main() {
+  final l10n = AppLocalizationsEn();
+
   group('Cadence', () {
     test('presets carry the day counts the plan names', () {
       expect(Cadence.weekly.days, 7);
@@ -60,36 +64,31 @@ void main() {
     });
 
     test('labels each preset by the interval people say out loud', () {
-      expect(Cadence.weekly.label, 'Weekly');
-      expect(Cadence.biweekly.label, 'Every 2 weeks');
-      expect(Cadence.monthly.label, 'Monthly');
-      expect(Cadence.quarterly.label, 'Every 3 months');
-      expect(Cadence.twiceAYear.label, 'Twice a year');
+      expect(Cadence.weekly.label(l10n), 'Weekly');
+      expect(Cadence.biweekly.label(l10n), 'Every 2 weeks');
+      expect(Cadence.monthly.label(l10n), 'Monthly');
+      expect(Cadence.quarterly.label(l10n), 'Every 3 months');
+      expect(Cadence.twiceAYear.label(l10n), 'Twice a year');
     });
 
     test('phrases each interval to sit mid-sentence', () {
-      expect(Cadence.weekly.phrase, 'weekly');
-      expect(Cadence.biweekly.phrase, 'every 2 weeks');
-      expect(Cadence.monthly.phrase, 'monthly');
-      expect(Cadence.quarterly.phrase, 'every 3 months');
-      expect(Cadence.twiceAYear.phrase, 'twice a year');
-      expect(const Cadence.custom(45).phrase, 'every 45 days');
-      expect(const Cadence.custom(1).phrase, 'daily');
+      expect(Cadence.weekly.phrase(l10n), 'weekly');
+      expect(Cadence.biweekly.phrase(l10n), 'every 2 weeks');
+      expect(Cadence.monthly.phrase(l10n), 'monthly');
+      expect(Cadence.quarterly.phrase(l10n), 'every 3 months');
+      expect(Cadence.twiceAYear.phrase(l10n), 'twice a year');
+      expect(const Cadence.custom(45).phrase(l10n), 'every 45 days');
+      expect(const Cadence.custom(1).phrase(l10n), 'daily');
     });
 
-    test('phrases only differ from labels in the first letter', () {
-      for (final cadence in [
-        ...Cadence.presets,
-        const Cadence.custom(45),
-      ]) {
-        expect(cadence.phrase.substring(1), cadence.label.substring(1));
-        expect(cadence.phrase, cadence.label.toLowerCase());
-      }
+    test('speaks the locale it is handed', () {
+      expect(Cadence.monthly.label(AppLocalizationsEs()), 'Mensual');
+      expect(Cadence.monthly.phrase(AppLocalizationsEs()), 'cada mes');
     });
 
     test('labels a custom interval by its day count', () {
-      expect(const Cadence.custom(45).label, 'Every 45 days');
-      expect(const Cadence.custom(1).label, 'Daily');
+      expect(const Cadence.custom(45).label(l10n), 'Every 45 days');
+      expect(const Cadence.custom(1).label(l10n), 'Daily');
     });
 
     test('knows whether it is one of the presets', () {

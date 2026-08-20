@@ -96,7 +96,7 @@ class SignInController extends Notifier<SignInState> {
     final invalid = CredentialValidator.email(address);
     if (invalid != null) {
       state = state.copyWith(
-        failure: AuthFailure(AuthFailureReason.invalidEmail, invalid),
+        failure: AuthFailure(AuthFailureReason.invalidEmail, invalid.message),
         clearPasswordResetSentTo: true,
       );
       return;

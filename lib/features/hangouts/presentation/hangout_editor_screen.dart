@@ -19,6 +19,7 @@ import 'package:kith/features/hangouts/domain/day_label.dart';
 import 'package:kith/features/hangouts/domain/hangout_draft.dart';
 import 'package:kith/features/hangouts/presentation/hangout_failure_message.dart';
 import 'package:kith/features/household/application/household_providers.dart';
+import 'package:kith/l10n/l10n.dart';
 
 /// The quick log: who you saw, when, and a note if there is one to make.
 ///
@@ -76,20 +77,25 @@ class HangoutEditorScreen extends ConsumerWidget {
         ? const AsyncLoading<List<Hangout>>()
         : ref.watch(hangoutsProvider(householdId));
 
+    final l10n = context.l10n;
     return Scaffold(
       appBar: AppBar(
-        title: Text(hangoutId == null ? 'Log a hangout' : 'Edit hangout'),
+        title: Text(
+          hangoutId == null ? l10n.logHangoutTitle : l10n.editHangoutTitle,
+        ),
       ),
       body: switch ((contacts, members, hangouts)) {
         (AsyncError(:final error), _, _) ||
         (_, AsyncError(:final error), _) ||
-        (_, _, AsyncError(:final error)) => _Message(_messageFor(error)),
+        (_, _, AsyncError(:final error)) => _Message(
+          _messageFor(l10n, error),
+        ),
         (
           AsyncData(value: final people),
           AsyncData(value: final household),
           AsyncData(value: final logged),
         ) =>
-          _resolve(ref, householdId!, people, household, logged, user),
+          _resolve(ref, l10n, householdId!, people, household, logged, user),
         _ => const Center(child: CircularProgressIndicator()),
       },
     );
@@ -98,6 +104,7 @@ class HangoutEditorScreen extends ConsumerWidget {
   /// Picks the form to show, or the reason there is none.
   Widget _resolve(
     WidgetRef ref,
+    AppLocalizations l10n,
     String householdId,
     List<Contact> contacts,
     List<Member> members,
@@ -112,12 +119,10 @@ class HangoutEditorScreen extends ConsumerWidget {
         ? null
         : hangouts.where((hangout) => hangout.id == hangoutId).firstOrNull;
     if (hangoutId != null && existing == null) {
-      return const _Message('That hangout is no longer here.');
+      return _Message(l10n.hangoutGone);
     }
     if (existing == null && active.isEmpty) {
-      return const _Message(
-        'Add a contact first, so there is somebody to have seen.',
-      );
+      return _Message(l10n.hangoutNeedsContact);
     }
 
     // An edit shows every contact the hangout names, archived ones included,
@@ -151,10 +156,11 @@ class HangoutEditorScreen extends ConsumerWidget {
     );
   }
 
-  static String _messageFor(Object error) => switch (error) {
-    final Failure failure => hangoutFailureMessage(failure),
-    _ => 'Something went wrong. Try again.',
-  };
+  static String _messageFor(AppLocalizations l10n, Object error) =>
+      switch (error) {
+        final Failure failure => hangoutFailureMessage(l10n, failure),
+        _ => l10n.errorGeneric,
+      };
 }
 
 class _HangoutForm extends ConsumerStatefulWidget {
@@ -282,6 +288,7 @@ class _HangoutFormState extends ConsumerState<_HangoutForm> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
     final state = ref.watch(hangoutEditorControllerProvider);
     final today = CalendarDay.of(ref.watch(nowProvider));
     final offered = _offered;
@@ -290,16 +297,16 @@ class _HangoutFormState extends ConsumerState<_HangoutForm> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const _SectionLabel('When'),
+          _SectionLabel(l10n.whenSection),
           const SizedBox(height: KithSpacing.xs),
           OutlinedButton.icon(
             key: HangoutEditorScreen.dateKey,
             onPressed: state.isSubmitting ? null : _pickDate,
             icon: const Icon(KithIcons.date),
-            label: Text(DayLabel.of(_occurredOn, today: today)),
+            label: Text(DayLabel.of(_occurredOn, today: today, l10n: l10n)),
           ),
           const SizedBox(height: KithSpacing.lg),
-          const _SectionLabel('Who you saw'),
+          _SectionLabel(l10n.whoYouSawSection),
           const SizedBox(height: KithSpacing.xs),
           if (widget.contacts.length > _searchFrom) ...[
             TextField(
@@ -307,16 +314,16 @@ class _HangoutFormState extends ConsumerState<_HangoutForm> {
               controller: _search,
               enabled: !state.isSubmitting,
               textInputAction: TextInputAction.search,
-              decoration: const InputDecoration(
-                hintText: 'Search contacts',
-                prefixIcon: Icon(KithIcons.search),
+              decoration: InputDecoration(
+                hintText: l10n.searchContactsHint,
+                prefixIcon: const Icon(KithIcons.search),
               ),
             ),
             const SizedBox(height: KithSpacing.sm),
           ],
           if (offered.isEmpty)
             Text(
-              'Nobody matches what you are looking for.',
+              l10n.nobodyMatches,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -346,7 +353,7 @@ class _HangoutFormState extends ConsumerState<_HangoutForm> {
           if (_showSelectionError) ...[
             const SizedBox(height: KithSpacing.xs),
             Text(
-              'Choose who you saw.',
+              l10n.chooseWhoYouSaw,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.error,
               ),
@@ -354,7 +361,7 @@ class _HangoutFormState extends ConsumerState<_HangoutForm> {
           ],
           if (widget.members.isNotEmpty) ...[
             const SizedBox(height: KithSpacing.lg),
-            const _SectionLabel('Who from the house was there'),
+            _SectionLabel(l10n.whoFromHouseSection),
             const SizedBox(height: KithSpacing.xs),
             Wrap(
               spacing: KithSpacing.xs,
@@ -386,9 +393,9 @@ class _HangoutFormState extends ConsumerState<_HangoutForm> {
             maxLines: 5,
             maxLength: Hangout.maxNoteLength,
             textCapitalization: TextCapitalization.sentences,
-            decoration: const InputDecoration(
-              labelText: 'Note',
-              helperText: 'Optional. What made it worth remembering.',
+            decoration: InputDecoration(
+              labelText: l10n.noteLabel,
+              helperText: l10n.noteHelper,
               // The cap is a backstop against a paste, not a target: a
               // counter next to a one-line note would be noise, and it
               // crowds the helper text off the end of its own line.
@@ -398,7 +405,7 @@ class _HangoutFormState extends ConsumerState<_HangoutForm> {
           if (state.failure case final failure?) ...[
             const SizedBox(height: KithSpacing.xs),
             Text(
-              hangoutFailureMessage(failure),
+              hangoutFailureMessage(l10n, failure),
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.error,
               ),
@@ -413,14 +420,18 @@ class _HangoutFormState extends ConsumerState<_HangoutForm> {
                     dimension: KithSpacing.md,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : Text(widget.existing == null ? 'Log it' : 'Save'),
+                : Text(
+                    widget.existing == null
+                        ? l10n.logItButton
+                        : l10n.saveButton,
+                  ),
           ),
           if (widget.existing != null) ...[
             const SizedBox(height: KithSpacing.xs),
             TextButton(
               key: HangoutEditorScreen.deleteKey,
               onPressed: state.isSubmitting ? null : _delete,
-              child: const Text('Delete hangout'),
+              child: Text(l10n.deleteHangout),
             ),
           ],
         ],

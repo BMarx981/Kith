@@ -10,6 +10,8 @@ import 'package:kith/features/household/application/household_onboarding_state.d
 import 'package:kith/features/household/application/household_providers.dart';
 import 'package:kith/features/household/domain/household_field_validator.dart';
 import 'package:kith/features/household/presentation/household_failure_message.dart';
+import 'package:kith/l10n/l10n.dart';
+import 'package:kith/l10n/validation_messages.dart';
 
 /// Where a signed-in user without a household lands.
 ///
@@ -104,6 +106,7 @@ class _HouseholdOnboardingScreenState
   /// The create-or-join form itself.
   Widget _form(BuildContext context, HouseholdOnboardingState state) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
     final isJoining = state.mode == HouseholdOnboardingMode.join;
 
     return Form(
@@ -112,15 +115,17 @@ class _HouseholdOnboardingScreenState
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            isJoining ? 'Join a household' : 'Start a household',
+            isJoining
+                ? l10n.onboardingJoinTitle
+                : l10n.onboardingCreateTitle,
             textAlign: TextAlign.center,
             style: theme.textTheme.headlineMedium,
           ),
           const SizedBox(height: KithSpacing.xs),
           Text(
             isJoining
-                ? 'Enter the invite code from whoever set yours up.'
-                : 'You can invite the rest of your household next.',
+                ? l10n.onboardingJoinSubtitle
+                : l10n.onboardingCreateSubtitle,
             textAlign: TextAlign.center,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
@@ -135,11 +140,15 @@ class _HouseholdOnboardingScreenState
               autocorrect: false,
               textCapitalization: TextCapitalization.characters,
               textInputAction: TextInputAction.next,
-              decoration: const InputDecoration(
-                labelText: 'Invite code',
+              decoration: InputDecoration(
+                labelText: l10n.inviteCodeLabel,
+                // An example code, not a word: the same in every locale.
                 hintText: 'KH7-RQ2',
               ),
-              validator: HouseholdFieldValidator.inviteCode,
+              validator: (input) => validationMessage(
+                l10n,
+                HouseholdFieldValidator.inviteCode(input),
+              ),
             )
           else
             TextFormField(
@@ -148,11 +157,12 @@ class _HouseholdOnboardingScreenState
               enabled: !state.isSubmitting,
               textCapitalization: TextCapitalization.words,
               textInputAction: TextInputAction.next,
-              decoration: const InputDecoration(
-                labelText: 'Household name',
-                hintText: 'The Marx house',
+              decoration: InputDecoration(
+                labelText: l10n.householdNameLabel,
+                hintText: l10n.householdNameHint,
               ),
-              validator: HouseholdFieldValidator.name,
+              validator: (input) =>
+                  validationMessage(l10n, HouseholdFieldValidator.name(input)),
             ),
           const SizedBox(height: KithSpacing.md),
           TextFormField(
@@ -162,17 +172,20 @@ class _HouseholdOnboardingScreenState
             textCapitalization: TextCapitalization.words,
             textInputAction: TextInputAction.done,
             autofillHints: const [AutofillHints.givenName],
-            decoration: const InputDecoration(
-              labelText: 'Your name',
-              helperText: 'What the rest of the household will see.',
+            decoration: InputDecoration(
+              labelText: l10n.yourNameLabel,
+              helperText: l10n.yourNameHelper,
             ),
-            validator: HouseholdFieldValidator.displayName,
+            validator: (input) => validationMessage(
+              l10n,
+              HouseholdFieldValidator.displayName(input),
+            ),
             onFieldSubmitted: (_) => _submit(),
           ),
           if (state.failure case final failure?) ...[
             const SizedBox(height: KithSpacing.md),
             Text(
-              householdFailureMessage(failure),
+              householdFailureMessage(l10n, failure),
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.error,
@@ -188,7 +201,11 @@ class _HouseholdOnboardingScreenState
                     dimension: 20,
                     child: CircularProgressIndicator(),
                   )
-                : Text(isJoining ? 'Join' : 'Create household'),
+                : Text(
+                    isJoining
+                        ? l10n.joinButton
+                        : l10n.createHouseholdButton,
+                  ),
           ),
           const SizedBox(height: KithSpacing.xs),
           TextButton(
@@ -205,9 +222,7 @@ class _HouseholdOnboardingScreenState
                             : HouseholdOnboardingMode.join,
                       ),
             child: Text(
-              isJoining
-                  ? 'Start a new household instead'
-                  : 'I have an invite code',
+              isJoining ? l10n.toggleStartInstead : l10n.toggleHaveCode,
             ),
           ),
           TextButton(
@@ -215,7 +230,7 @@ class _HouseholdOnboardingScreenState
             onPressed: state.isSubmitting
                 ? null
                 : () => ref.read(authServiceProvider).signOut(),
-            child: const Text('Sign out'),
+            child: Text(l10n.signOut),
           ),
         ],
       ),
@@ -241,20 +256,21 @@ class _Unreadable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          'Cannot reach your household',
+          l10n.householdUnreachableTitle,
           textAlign: TextAlign.center,
           style: theme.textTheme.headlineSmall,
         ),
         const SizedBox(height: KithSpacing.sm),
         Text(
           switch (error) {
-            final Failure failure => householdFailureMessage(failure),
-            _ => 'Something went wrong. Try again.',
+            final Failure failure => householdFailureMessage(l10n, failure),
+            _ => l10n.errorGeneric,
           },
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyMedium?.copyWith(
@@ -265,13 +281,13 @@ class _Unreadable extends StatelessWidget {
         FilledButton(
           key: HouseholdOnboardingScreen.retryKey,
           onPressed: onRetry,
-          child: const Text('Try again'),
+          child: Text(l10n.tryAgain),
         ),
         const SizedBox(height: KithSpacing.xs),
         TextButton(
           key: HouseholdOnboardingScreen.signOutKey,
           onPressed: onSignOut,
-          child: const Text('Sign out'),
+          child: Text(l10n.signOut),
         ),
       ],
     );

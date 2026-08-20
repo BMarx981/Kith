@@ -13,6 +13,7 @@ import 'package:kith/features/contacts/domain/cadence.dart';
 import 'package:kith/features/contacts/domain/contact_import.dart';
 import 'package:kith/features/contacts/presentation/contact_failure_message.dart';
 import 'package:kith/features/household/application/household_providers.dart';
+import 'package:kith/l10n/l10n.dart';
 
 /// Brings people over from the phone's address book.
 ///
@@ -52,7 +53,7 @@ class ContactImportScreen extends ConsumerWidget {
     final householdId = ref.watch(currentHouseholdIdProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Import contacts')),
+      appBar: AppBar(title: Text(context.l10n.importContactsTitle)),
       body: householdId == null
           ? const Center(child: CircularProgressIndicator())
           : _ImportBody(householdId: householdId),
@@ -86,12 +87,11 @@ class _ImportBodyState extends ConsumerState<_ImportBody> {
 
     return switch ((labels, existing)) {
       (AsyncError(:final error), _) ||
-      (_, AsyncError(:final error)) => _Message(_messageFor(error)),
+      (_, AsyncError(:final error)) => _Message(
+        _messageFor(context.l10n, error),
+      ),
       (AsyncData(value: final all), AsyncData()) when all.isEmpty =>
-        const _Message(
-          'Add a relationship label first, so imported contacts have '
-          'somewhere to go.',
-        ),
+        _Message(context.l10n.importNeedsLabel),
       (AsyncData(value: final all), AsyncData()) => _body(state, all),
       _ => const Center(child: CircularProgressIndicator()),
     };
@@ -101,14 +101,11 @@ class _ImportBodyState extends ConsumerState<_ImportBody> {
       switch (state.step) {
         ContactImportStep.idle ||
         ContactImportStep.reading => _Intro(state: state),
-        ContactImportStep.permissionDenied => const _Message(
-          'Kith cannot see your contacts. Allow access in your phone '
-          'settings, then try again.',
+        ContactImportStep.permissionDenied => _Message(
+          context.l10n.importPermissionDenied,
         ),
         ContactImportStep.done => _Message(
-          state.importedCount == 1
-              ? '1 contact added.'
-              : '${state.importedCount} contacts added.',
+          context.l10n.importDone(state.importedCount),
         ),
         ContactImportStep.ready ||
         ContactImportStep.importing => _picker(state, labels),
@@ -116,10 +113,11 @@ class _ImportBodyState extends ConsumerState<_ImportBody> {
 
   Widget _picker(ContactImportState state, List<RelationshipType> labels) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
     final labelId = _resolvedLabelId(labels);
 
     if (state.candidates.isEmpty) {
-      return const _Message('There is nobody in your address book to import.');
+      return _Message(l10n.importNobody);
     }
 
     return Column(
@@ -144,7 +142,9 @@ class _ImportBodyState extends ConsumerState<_ImportBody> {
                   // half the screen. Expanding lets it ellipsize instead of
                   // overflowing the row.
                   isExpanded: true,
-                  decoration: const InputDecoration(labelText: 'File them as'),
+                  decoration: InputDecoration(
+                    labelText: l10n.importFileThemAs,
+                  ),
                   items: [
                     for (final label in labels)
                       DropdownMenuItem(
@@ -166,13 +166,13 @@ class _ImportBodyState extends ConsumerState<_ImportBody> {
                   key: ContactImportScreen.cadenceKey,
                   initialValue: _cadence.days,
                   isExpanded: true,
-                  decoration: const InputDecoration(labelText: 'See them'),
+                  decoration: InputDecoration(labelText: l10n.importSeeThem),
                   items: [
                     for (final preset in Cadence.presets)
                       DropdownMenuItem(
                         value: preset.days,
                         child: Text(
-                          preset.label,
+                          preset.label(l10n),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -196,8 +196,8 @@ class _ImportBodyState extends ConsumerState<_ImportBody> {
             children: [
               Text(
                 state.selected.isEmpty
-                    ? 'Nobody chosen'
-                    : '${state.selected.length} chosen',
+                    ? l10n.importNobodyChosen
+                    : l10n.importChosen(state.selected.length),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -209,7 +209,11 @@ class _ImportBodyState extends ConsumerState<_ImportBody> {
                     : ref
                           .read(contactImportControllerProvider.notifier)
                           .toggleAll,
-                child: Text(state.isEverySelected ? 'None' : 'All'),
+                child: Text(
+                  state.isEverySelected
+                      ? l10n.importSelectNone
+                      : l10n.importSelectAll,
+                ),
               ),
             ],
           ),
@@ -218,7 +222,7 @@ class _ImportBodyState extends ConsumerState<_ImportBody> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: KithSpacing.md),
             child: Text(
-              contactFailureMessage(failure),
+              contactFailureMessage(l10n, failure),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.error,
               ),
@@ -258,11 +262,7 @@ class _ImportBodyState extends ConsumerState<_ImportBody> {
                       dimension: KithSpacing.md,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : Text(
-                      state.selected.length == 1
-                          ? 'Import 1 contact'
-                          : 'Import ${state.selected.length} contacts',
-                    ),
+                  : Text(l10n.importButton(state.selected.length)),
             ),
           ),
         ),
@@ -279,10 +279,11 @@ class _ImportBodyState extends ConsumerState<_ImportBody> {
           ?.id ??
       labels.firstOrNull?.id;
 
-  static String _messageFor(Object error) => switch (error) {
-    final Failure failure => contactFailureMessage(failure),
-    _ => 'Something went wrong. Try again.',
-  };
+  static String _messageFor(AppLocalizations l10n, Object error) =>
+      switch (error) {
+        final Failure failure => contactFailureMessage(l10n, failure),
+        _ => l10n.errorGeneric,
+      };
 }
 
 /// The step before the address book has been touched.
@@ -314,9 +315,7 @@ class _Intro extends ConsumerWidget {
             ),
             const SizedBox(height: KithSpacing.md),
             Text(
-              'Kith can read your phone contacts so you can pick who to '
-              'track. Nothing is sent anywhere, and nothing is written back '
-              'to your address book.',
+              context.l10n.importIntro,
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
@@ -325,7 +324,7 @@ class _Intro extends ConsumerWidget {
             if (state.failure case final failure?) ...[
               const SizedBox(height: KithSpacing.md),
               Text(
-                contactFailureMessage(failure),
+                contactFailureMessage(context.l10n, failure),
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.error,
@@ -347,7 +346,7 @@ class _Intro extends ConsumerWidget {
                       dimension: KithSpacing.md,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Text('Choose from contacts'),
+                  : Text(context.l10n.importChooseButton),
             ),
           ],
         ),
@@ -380,7 +379,9 @@ class _CandidateRow extends ConsumerWidget {
       value: candidate.isAlreadyHere || isSelected,
       title: Text(person.name),
       subtitle: Text(
-        candidate.isAlreadyHere ? 'Already in Kith' : detail ?? 'No details',
+        candidate.isAlreadyHere
+            ? context.l10n.importAlreadyHere
+            : detail ?? context.l10n.importNoDetails,
       ),
       // Somebody already here is shown ticked and inert: on the list to
       // explain their absence from it, not to be imported twice.

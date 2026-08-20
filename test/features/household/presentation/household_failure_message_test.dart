@@ -1,8 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kith/core/result/failure.dart';
 import 'package:kith/features/household/presentation/household_failure_message.dart';
+import 'package:kith/l10n/gen/app_localizations_en.dart';
 
 void main() {
+  final l10n = AppLocalizationsEn();
+
   /// Every failure a repository in this feature can return.
   const failures = <Failure>[
     NetworkFailure('log copy'),
@@ -16,7 +19,7 @@ void main() {
 
   test('every failure has copy of its own', () {
     for (final failure in failures) {
-      final message = householdFailureMessage(failure);
+      final message = householdFailureMessage(l10n, failure);
       expect(message, isNotEmpty, reason: '${failure.name} has no copy');
       expect(
         message,
@@ -28,15 +31,15 @@ void main() {
 
   test('a code that matched nothing says so', () {
     expect(
-      householdFailureMessage(const NotFoundFailure('no such code')),
+      householdFailureMessage(l10n, const NotFoundFailure('no such code')),
       contains('code'),
     );
   });
 
   test('being offline is distinguishable from anything else', () {
     expect(
-      householdFailureMessage(const NetworkFailure('offline')),
-      isNot(householdFailureMessage(const UnknownFailure('boom'))),
+      householdFailureMessage(l10n, const NetworkFailure('offline')),
+      isNot(householdFailureMessage(l10n, const UnknownFailure('boom'))),
     );
   });
 }

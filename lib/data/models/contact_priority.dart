@@ -1,3 +1,5 @@
+import 'package:kith/l10n/gen/app_localizations.dart';
+
 /// How much a contact's overdueness should count for.
 ///
 /// Feeds the suggestion score as `overdueRatio * priorityWeight *
@@ -5,15 +7,15 @@
 /// presentation detail.
 enum ContactPriority {
   /// Nice to see, but not something to be prompted about often.
-  low('low', 0.5, 'Low'),
+  low('low', 0.5),
 
   /// The default: ranked purely on how overdue they are.
-  normal('normal', 1, 'Normal'),
+  normal('normal', 1),
 
   /// Someone you want pushed up the list.
-  high('high', 1.5, 'High');
+  high('high', 1.5);
 
-  const ContactPriority(this.wireName, this.weight, this.label);
+  const ContactPriority(this.wireName, this.weight);
 
   /// Stable identifier persisted to Firestore.
   ///
@@ -25,7 +27,11 @@ enum ContactPriority {
   final double weight;
 
   /// How the level is written in the UI.
-  final String label;
+  String label(AppLocalizations l10n) => switch (this) {
+    ContactPriority.low => l10n.priorityLow,
+    ContactPriority.normal => l10n.priorityNormal,
+    ContactPriority.high => l10n.priorityHigh,
+  };
 
   /// Parses a persisted [wireName], falling back to [ContactPriority.normal]
   /// for anything unrecognised so a future level cannot break an old client.

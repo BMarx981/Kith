@@ -17,6 +17,7 @@ import 'package:kith/features/contacts/presentation/contacts_screen.dart';
 import 'package:kith/features/hangouts/application/hangout_providers.dart';
 import 'package:kith/features/hangouts/domain/freshness.dart';
 import 'package:kith/features/household/application/household_providers.dart';
+import 'package:kith/l10n/gen/app_localizations_en.dart';
 
 import '../../../helpers/fake_contact_repository.dart';
 import '../../../helpers/fake_hangout_repository.dart';
@@ -390,7 +391,9 @@ void main() {
       await pumpScreen(tester);
       await tester.tap(find.byKey(ContactsScreen.sortKey));
       await tester.pumpAndSettle();
-      await tester.tap(find.text(ContactSort.freshness.label).last);
+      await tester.tap(
+        find.text(ContactSort.freshness.label(AppLocalizationsEn())).last,
+      );
       await tester.pumpAndSettle();
 
       final names = tester

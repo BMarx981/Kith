@@ -8,6 +8,10 @@ analyzer:
     # hand-edited, never linted, never counted for coverage.
     - "**/*.gr.dart"
 
+    # gen-l10n output, regenerated from the ARB files in lib/l10n/. Same
+    # policy as the router: never hand-edited, never linted, never counted.
+    - "lib/l10n/gen/**"
+
     # FlutterFire CLI output: platform app ids and API keys, rewritten wholesale
     # by `flutterfire configure`. Not build_runner codegen, but equally
     # off-limits to hand edits.

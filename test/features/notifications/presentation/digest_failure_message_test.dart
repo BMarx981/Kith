@@ -1,8 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kith/core/result/failure.dart';
 import 'package:kith/features/notifications/presentation/digest_failure_message.dart';
+import 'package:kith/l10n/gen/app_localizations_en.dart';
 
 void main() {
+  final l10n = AppLocalizationsEn();
+
   group('digestFailureMessage', () {
     const failures = <Failure>[
       NetworkFailure('offline'),
@@ -15,7 +18,7 @@ void main() {
 
     test('gives every failure copy a user could act on', () {
       for (final failure in failures) {
-        final message = digestFailureMessage(failure);
+        final message = digestFailureMessage(l10n, failure);
         expect(message, isNotEmpty, reason: failure.name);
         expect(message, endsWith('.'), reason: failure.name);
         expect(
@@ -28,14 +31,17 @@ void main() {
 
     test('passes a validation failure through as written', () {
       expect(
-        digestFailureMessage(const ValidationFailure('That is not a day.')),
+        digestFailureMessage(
+          l10n,
+          const ValidationFailure('That is not a day.'),
+        ),
         'That is not a day.',
       );
     });
 
     test('says where to look when the device refused', () {
       expect(
-        digestFailureMessage(const UnknownFailure('no channel')),
+        digestFailureMessage(l10n, const UnknownFailure('no channel')),
         contains('this device'),
       );
     });

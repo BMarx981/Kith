@@ -14,6 +14,7 @@ import 'package:kith/features/hangouts/application/hangout_providers.dart';
 import 'package:kith/features/hangouts/domain/freshness.dart';
 import 'package:kith/features/hangouts/domain/freshness_index.dart';
 import 'package:kith/features/household/application/household_providers.dart';
+import 'package:kith/l10n/l10n.dart';
 import 'package:kith/routing/app_router.dart';
 
 /// The household's contact list, with search, a label filter and a sort.
@@ -44,33 +45,34 @@ class ContactsScreen extends ConsumerWidget {
     final householdId = ref.watch(currentHouseholdIdProvider);
     final view = ref.watch(contactListControllerProvider);
 
+    final l10n = context.l10n;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Contacts'),
+        title: Text(l10n.contactsTitle),
         actions: [
           PopupMenuButton<ContactSort>(
             key: sortKey,
             icon: const Icon(KithIcons.sort),
-            tooltip: 'Sort',
+            tooltip: l10n.sortTooltip,
             initialValue: view.sort,
             onSelected: ref.read(contactListControllerProvider.notifier).sortBy,
             itemBuilder: (context) => [
               for (final sort in ContactSort.values)
-                PopupMenuItem(value: sort, child: Text(sort.label)),
+                PopupMenuItem(value: sort, child: Text(sort.label(l10n))),
             ],
           ),
           IconButton(
             key: importKey,
             onPressed: () => context.router.push(const ContactImportRoute()),
             icon: const Icon(KithIcons.importContacts),
-            tooltip: 'Import from contacts',
+            tooltip: l10n.importTooltip,
           ),
           IconButton(
             key: labelsKey,
             onPressed: () =>
                 context.router.push(const RelationshipTypesRoute()),
             icon: const Icon(KithIcons.label),
-            tooltip: 'Relationship labels',
+            tooltip: l10n.labelsTooltip,
           ),
         ],
       ),
@@ -79,7 +81,7 @@ class ContactsScreen extends ConsumerWidget {
           : FloatingActionButton(
               key: addKey,
               onPressed: () => context.router.push(ContactEditorRoute()),
-              tooltip: 'Add a contact',
+              tooltip: l10n.addContactTooltip,
               child: const Icon(KithIcons.add),
             ),
       // Null only in the beat between the guard letting the user through and
@@ -108,7 +110,9 @@ class _ContactsBody extends ConsumerWidget {
 
     return switch ((contacts, types)) {
       (AsyncError(:final error), _) ||
-      (_, AsyncError(:final error)) => _Message(_messageFor(error)),
+      (_, AsyncError(:final error)) => _Message(
+        _messageFor(context.l10n, error),
+      ),
       (AsyncData(value: final all), AsyncData(value: final labels)) =>
         _ContactList(
           householdId: householdId,
@@ -124,10 +128,11 @@ class _ContactsBody extends ConsumerWidget {
 
   /// Streams surface domain failures; anything else is a bug rather than a
   /// condition the user can act on, and reads as the generic message.
-  static String _messageFor(Object error) => switch (error) {
-    final Failure failure => contactFailureMessage(failure),
-    _ => 'Something went wrong. Try again.',
-  };
+  static String _messageFor(AppLocalizations l10n, Object error) =>
+      switch (error) {
+        final Failure failure => contactFailureMessage(l10n, failure),
+        _ => l10n.errorGeneric,
+      };
 }
 
 class _ContactList extends ConsumerWidget {
@@ -165,9 +170,9 @@ class _ContactList extends ConsumerWidget {
             key: ContactsScreen.searchKey,
             onChanged: controller.search,
             textInputAction: TextInputAction.search,
-            decoration: const InputDecoration(
-              hintText: 'Search names, tags or a guardian',
-              prefixIcon: Icon(KithIcons.search),
+            decoration: InputDecoration(
+              hintText: context.l10n.searchHint,
+              prefixIcon: const Icon(KithIcons.search),
             ),
           ),
         ),
@@ -212,7 +217,7 @@ class _FilterChips extends ConsumerWidget {
         spacing: KithSpacing.xs,
         children: [
           FilterChip(
-            label: const Text('All'),
+            label: Text(context.l10n.filterAll),
             selected: view.relationshipTypeId == null,
             onSelected: (_) => controller.filterByType(null),
           ),
@@ -224,7 +229,7 @@ class _FilterChips extends ConsumerWidget {
                   controller.filterByType(selected ? label.id : null),
             ),
           FilterChip(
-            label: const Text('Archived'),
+            label: Text(context.l10n.filterArchived),
             selected: view.showArchived,
             onSelected: (selected) => controller.showArchived(show: selected),
           ),
@@ -269,12 +274,14 @@ class _ContactRow extends StatelessWidget {
       title: Text(contact.name),
       subtitle: Text(
         [
-          label?.name ?? 'No label',
-          contact.cadence.label,
-          freshness.lastSeenLabel,
+          label?.name ?? context.l10n.noLabel,
+          contact.cadence.label(context.l10n),
+          freshness.lastSeenLabel(context.l10n),
         ].join('  ·  '),
       ),
-      trailing: contact.isArchived ? const Chip(label: Text('Archived')) : null,
+      trailing: contact.isArchived
+          ? Chip(label: Text(context.l10n.filterArchived))
+          : null,
     );
   }
 
@@ -298,25 +305,26 @@ class _EmptyState extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
     final (text, action) = switch ((hasAnyLabel, hasAnyContact, isFiltered)) {
       (false, _, _) => (
-        'Add a relationship label first, so contacts have somewhere to go.',
+        l10n.emptyNeedsLabel,
         TextButton(
           onPressed: () => context.router.push(const RelationshipTypesRoute()),
-          child: const Text('Manage labels'),
+          child: Text(l10n.manageLabels),
         ),
       ),
-      (_, false, _) => ('Nobody here yet. Add the first contact.', null),
+      (_, false, _) => (l10n.emptyNoContacts, null),
       (_, _, true) => (
-        'Nothing matches what you are looking for.',
+        l10n.emptyFiltered,
         TextButton(
           onPressed: ref
               .read(contactListControllerProvider.notifier)
               .clearFilters,
-          child: const Text('Clear filters'),
+          child: Text(l10n.clearFilters),
         ),
       ),
-      _ => ('Nobody here yet. Add the first contact.', null),
+      _ => (l10n.emptyNoContacts, null),
     };
 
     return Center(

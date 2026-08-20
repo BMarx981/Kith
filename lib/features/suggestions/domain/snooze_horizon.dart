@@ -1,5 +1,6 @@
 import 'package:kith/core/time/calendar_day.dart';
 import 'package:kith/features/contacts/domain/cadence.dart';
+import 'package:kith/l10n/gen/app_localizations.dart';
 
 /// How long a deferred suggestion stays quiet.
 ///
@@ -13,18 +14,19 @@ import 'package:kith/features/contacts/domain/cadence.dart';
 /// its own.
 enum SnoozeHorizon {
   /// Ask again in a week, whatever the cadence.
-  week('Snooze'),
+  week,
 
   /// Ask again one full cadence from today.
-  fullCadence('Dismiss');
-
-  const SnoozeHorizon(this.label);
+  fullCadence;
 
   /// How the choice is written on the card.
   ///
   /// Short, because it sits on a button: how long the deferral actually runs
   /// is said back in the confirmation, where there is room for a date.
-  final String label;
+  String label(AppLocalizations l10n) => switch (this) {
+    SnoozeHorizon.week => l10n.snoozeButton,
+    SnoozeHorizon.fullCadence => l10n.dismissButton,
+  };
 
   /// Days a week's snooze lasts.
   static const weekDays = 7;

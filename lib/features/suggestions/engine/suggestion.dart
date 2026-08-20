@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:kith/data/models/contact.dart';
 import 'package:kith/data/models/planned_hangout.dart';
 import 'package:kith/features/hangouts/domain/freshness.dart';
+import 'package:kith/l10n/gen/app_localizations.dart';
 
 /// One person the Reconnect section is putting forward, and why.
 ///
@@ -52,11 +53,15 @@ class Suggestion {
   /// Written to stand on its own, name included, so the same sentence works on
   /// a card that already shows the name and in a notification digest that does
   /// not.
-  String get reason => switch (freshness.elapsedLabel) {
-    null => 'Nothing logged with ${contact.name} yet.',
-    final elapsed =>
-      "It's been $elapsed — you usually see ${contact.name} "
-          '${contact.cadence.phrase}.',
+  String reason(AppLocalizations l10n) => switch (freshness.elapsedLabel(
+    l10n,
+  )) {
+    null => l10n.reasonNothingLogged(contact.name),
+    final elapsed => l10n.reasonOverdue(
+      elapsed,
+      contact.name,
+      contact.cadence.phrase(l10n),
+    ),
   };
 
   @override

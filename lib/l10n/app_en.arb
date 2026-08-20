@@ -1,0 +1,634 @@
+{
+  "@@locale": "en",
+  "appTitle": "Kith",
+  "@appTitle": {
+    "description": "Application title, shown in the task switcher. A proper noun; the same in every locale."
+  },
+  "arrivesInMilestone": "Arrives in {milestone}",
+  "@arrivesInMilestone": {
+    "description": "Placeholder body for a screen whose feature is not built yet",
+    "placeholders": {
+      "milestone": {"type": "String", "example": "M2"}
+    }
+  },
+
+  "signInTagline": "Sign in to your household.",
+  "signUpTagline": "Create an account, then start or join a household.",
+  "emailLabel": "Email",
+  "passwordLabel": "Password",
+  "showPassword": "Show password",
+  "hidePassword": "Hide password",
+  "signInButton": "Sign in",
+  "createAccountButton": "Create account",
+  "forgotPassword": "Forgot your password?",
+  "continueWithGoogle": "Continue with Google",
+  "toggleHaveAccount": "I already have an account",
+  "toggleCreateAccount": "Create an account",
+  "passwordResetSent": "Password reset link sent to {email}.",
+  "@passwordResetSent": {
+    "placeholders": {
+      "email": {"type": "String"}
+    }
+  },
+
+  "authInvalidCredentials": "That email and password do not match an account.",
+  "authEmailAlreadyInUse": "That address already has an account. Try signing in instead.",
+  "authWeakPassword": "That password is too easy to guess. Pick a longer one.",
+  "authInvalidEmail": "That does not look like an email address.",
+  "authUserDisabled": "That account has been disabled.",
+  "authTooManyRequests": "Too many attempts. Wait a minute, then try again.",
+  "authNetwork": "You appear to be offline. Try again once you are connected.",
+  "authProviderUnavailable": "That way of signing in is not available yet.",
+  "authCancelled": "Sign-in was cancelled.",
+  "authAccountExistsWithDifferentCredential": "That address already has an account. Sign in the way you did before.",
+  "authUnknown": "Something went wrong. Try again.",
+
+  "errorEmailEmpty": "Enter your email address.",
+  "errorEmailMalformed": "That does not look like an email address.",
+  "errorPasswordEmpty": "Enter your password.",
+  "errorPasswordTooShort": "Use at least {min} characters.",
+  "@errorPasswordTooShort": {
+    "placeholders": {
+      "min": {"type": "int"}
+    }
+  },
+  "errorContactNameEmpty": "Give the contact a name.",
+  "errorLabelNameEmpty": "Give the label a name.",
+  "errorHouseholdNameEmpty": "Give the household a name.",
+  "errorDisplayNameEmpty": "Enter the name to show others.",
+  "errorTextTooLong": "Keep it under {max} characters.",
+  "@errorTextTooLong": {
+    "placeholders": {
+      "max": {"type": "int"}
+    }
+  },
+  "errorTooManyTags": "Use at most {max} tags.",
+  "@errorTooManyTags": {
+    "placeholders": {
+      "max": {"type": "int"}
+    }
+  },
+  "errorTagTooLong": "Keep each tag under {max} characters.",
+  "@errorTagTooLong": {
+    "placeholders": {
+      "max": {"type": "int"}
+    }
+  },
+  "errorCadenceEmpty": "Enter how many days.",
+  "errorCadenceNotANumber": "Use a whole number of days.",
+  "errorCadenceTooShort": "Use at least {min} day.",
+  "@errorCadenceTooShort": {
+    "placeholders": {
+      "min": {"type": "int"}
+    }
+  },
+  "errorCadenceTooLong": "Use at most {max} days.",
+  "@errorCadenceTooLong": {
+    "placeholders": {
+      "max": {"type": "int"}
+    }
+  },
+  "errorBirthdayEmpty": "Enter a birthday.",
+  "errorBirthdayUnreadable": "Write it like 14 Mar, or 14 Mar 1988.",
+  "errorBirthdayBadMonth": "That is not a month.",
+  "errorBirthdayYearOutOfRange": "Use a year between {min} and {max}.",
+  "@errorBirthdayYearOutOfRange": {
+    "placeholders": {
+      "min": {"type": "int"},
+      "max": {"type": "int"}
+    }
+  },
+  "errorBirthdayNoSuchDay": "{month} has no day {day}.",
+  "@errorBirthdayNoSuchDay": {
+    "description": "month is the localized short month name",
+    "placeholders": {
+      "month": {"type": "String", "example": "Mar"},
+      "day": {"type": "int"}
+    }
+  },
+  "errorInviteCodeEmpty": "Enter an invite code.",
+  "errorInviteCodeWrongLength": "Invite codes are {length} characters long.",
+  "@errorInviteCodeWrongLength": {
+    "placeholders": {
+      "length": {"type": "int"}
+    }
+  },
+  "errorInviteCodeBadCharacter": "\"{char}\" is not part of an invite code.",
+  "@errorInviteCodeBadCharacter": {
+    "placeholders": {
+      "char": {"type": "String"}
+    }
+  },
+
+  "cadenceDaily": "Daily",
+  "cadenceWeekly": "Weekly",
+  "cadenceBiweekly": "Every 2 weeks",
+  "cadenceMonthly": "Monthly",
+  "cadenceQuarterly": "Every 3 months",
+  "cadenceTwiceAYear": "Twice a year",
+  "cadenceEveryDays": "Every {days} days",
+  "@cadenceEveryDays": {
+    "placeholders": {
+      "days": {"type": "int"}
+    }
+  },
+  "cadencePhraseDaily": "daily",
+  "cadencePhraseWeekly": "weekly",
+  "cadencePhraseBiweekly": "every 2 weeks",
+  "cadencePhraseMonthly": "monthly",
+  "cadencePhraseQuarterly": "every 3 months",
+  "cadencePhraseTwiceAYear": "twice a year",
+  "cadencePhraseEveryDays": "every {days} days",
+  "@cadencePhraseEveryDays": {
+    "description": "Mid-sentence: 'you usually see Ana every 14 days'",
+    "placeholders": {
+      "days": {"type": "int"}
+    }
+  },
+
+  "dayToday": "Today",
+  "dayYesterday": "Yesterday",
+  "dayTomorrow": "Tomorrow",
+  "dayFull": "{weekday} {day} {month}",
+  "@dayFull": {
+    "description": "A date written out, e.g. 'Tue 12 Aug'. Locales reorder the parts.",
+    "placeholders": {
+      "weekday": {"type": "String", "example": "Tue"},
+      "day": {"type": "int"},
+      "month": {"type": "String", "example": "Aug"}
+    }
+  },
+  "dayFullWithYear": "{date} {year}",
+  "@dayFullWithYear": {
+    "description": "dayFull with the year appended, e.g. 'Tue 12 Aug 2025'",
+    "placeholders": {
+      "date": {"type": "String"},
+      "year": {"type": "int"}
+    }
+  },
+  "weekdayMon": "Mon",
+  "weekdayTue": "Tue",
+  "weekdayWed": "Wed",
+  "weekdayThu": "Thu",
+  "weekdayFri": "Fri",
+  "weekdaySat": "Sat",
+  "weekdaySun": "Sun",
+  "monthJan": "Jan",
+  "monthFeb": "Feb",
+  "monthMar": "Mar",
+  "monthApr": "Apr",
+  "monthMay": "May",
+  "monthJun": "Jun",
+  "monthJul": "Jul",
+  "monthAug": "Aug",
+  "monthSep": "Sep",
+  "monthOct": "Oct",
+  "monthNov": "Nov",
+  "monthDec": "Dec",
+  "monthFullJan": "January",
+  "monthFullFeb": "February",
+  "monthFullMar": "March",
+  "monthFullApr": "April",
+  "monthFullMay": "May",
+  "monthFullJun": "June",
+  "monthFullJul": "July",
+  "monthFullAug": "August",
+  "monthFullSep": "September",
+  "monthFullOct": "October",
+  "monthFullNov": "November",
+  "monthFullDec": "December",
+
+  "seenNever": "Never logged",
+  "seenToday": "Seen today",
+  "seenYesterday": "Seen yesterday",
+  "seenDaysAgo": "Seen {days} days ago",
+  "@seenDaysAgo": {
+    "description": "Only used for 2-6 days",
+    "placeholders": {
+      "days": {"type": "int"}
+    }
+  },
+  "seenLastWeek": "Seen last week",
+  "seenAgo": "Seen {elapsed} ago",
+  "@seenAgo": {
+    "placeholders": {
+      "elapsed": {"type": "String", "example": "6 weeks"}
+    }
+  },
+  "elapsedLessThanADay": "less than a day",
+  "elapsedADay": "a day",
+  "elapsedDays": "{days} days",
+  "@elapsedDays": {
+    "placeholders": {
+      "days": {"type": "int"}
+    }
+  },
+  "elapsedAWeek": "a week",
+  "elapsedWeeks": "{weeks} weeks",
+  "@elapsedWeeks": {
+    "placeholders": {
+      "weeks": {"type": "int"}
+    }
+  },
+  "elapsedMonths": "{months} months",
+  "@elapsedMonths": {
+    "placeholders": {
+      "months": {"type": "int"}
+    }
+  },
+  "elapsedYears": "{years}+ years",
+  "@elapsedYears": {
+    "placeholders": {
+      "years": {"type": "int"}
+    }
+  },
+
+  "reasonNothingLogged": "Nothing logged with {name} yet.",
+  "@reasonNothingLogged": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "reasonOverdue": "It's been {elapsed} — you usually see {name} {cadence}.",
+  "@reasonOverdue": {
+    "description": "cadence is a cadencePhrase* value, e.g. 'every 2 weeks'",
+    "placeholders": {
+      "elapsed": {"type": "String", "example": "6 weeks"},
+      "name": {"type": "String"},
+      "cadence": {"type": "String", "example": "monthly"}
+    }
+  },
+  "sortByName": "Name",
+  "sortByRecentlyAdded": "Recently added",
+  "sortByCadence": "How often",
+  "sortByFreshness": "Freshness",
+  "snoozeButton": "Snooze",
+  "dismissButton": "Dismiss",
+
+  "whenToday": "today",
+  "whenTomorrow": "tomorrow",
+  "whenOnDay": "on {date}",
+  "@whenOnDay": {
+    "description": "Mid-sentence: 'Ana turns 40 on Tue 12 Aug.'",
+    "placeholders": {
+      "date": {"type": "String", "example": "Tue 12 Aug"}
+    }
+  },
+  "birthdayHeadline": "{name}'s birthday is {when}.",
+  "@birthdayHeadline": {
+    "description": "when is whenToday, whenTomorrow or whenOnDay",
+    "placeholders": {
+      "name": {"type": "String"},
+      "when": {"type": "String"}
+    }
+  },
+  "birthdayHeadlineTurning": "{name} turns {age} {when}.",
+  "@birthdayHeadlineTurning": {
+    "placeholders": {
+      "name": {"type": "String"},
+      "age": {"type": "int"},
+      "when": {"type": "String"}
+    }
+  },
+  "birthdayLabel": "{day} {month}",
+  "@birthdayLabel": {
+    "description": "A birthday with no year, e.g. '14 Mar'",
+    "placeholders": {
+      "day": {"type": "int"},
+      "month": {"type": "String", "example": "Mar"}
+    }
+  },
+  "birthdayLabelWithYear": "{date} {year}",
+  "@birthdayLabelWithYear": {
+    "description": "birthdayLabel with the birth year appended",
+    "placeholders": {
+      "date": {"type": "String"},
+      "year": {"type": "int"}
+    }
+  },
+
+  "digestTitleOverdue": "{count, plural, =1{1 person is overdue} other{{count} people are overdue}}",
+  "@digestTitleOverdue": {
+    "placeholders": {
+      "count": {"type": "num"}
+    }
+  },
+  "digestTitleBirthdays": "{count, plural, =1{1 birthday this week} other{{count} birthdays this week}}",
+  "@digestTitleBirthdays": {
+    "placeholders": {
+      "count": {"type": "num"}
+    }
+  },
+  "digestSentence": "{names}.",
+  "@digestSentence": {
+    "description": "The overdue names as a sentence of their own",
+    "placeholders": {
+      "names": {"type": "String", "example": "Marcus, Ana and Ben"}
+    }
+  },
+  "digestBirthdayList": "Birthdays this week: {names}.",
+  "@digestBirthdayList": {
+    "placeholders": {
+      "names": {"type": "String"}
+    }
+  },
+  "nameListPair": "{first} and {second}",
+  "@nameListPair": {
+    "description": "Joins the last two entries of a spoken list of names",
+    "placeholders": {
+      "first": {"type": "String"},
+      "second": {"type": "String"}
+    }
+  },
+  "nameListSeparator": ", ",
+  "@nameListSeparator": {
+    "description": "Separator between earlier entries of a spoken list of names"
+  },
+
+  "errorOffline": "You appear to be offline. Try again once you are connected.",
+  "errorGeneric": "Something went wrong. Try again.",
+  "errorSignInAgain": "Sign in again to continue.",
+  "tryAgain": "Try again",
+  "signOut": "Sign out",
+  "saveButton": "Save",
+  "cancelButton": "Cancel",
+  "deleteButton": "Delete",
+  "undoButton": "Undo",
+
+  "onboardingJoinTitle": "Join a household",
+  "onboardingCreateTitle": "Start a household",
+  "onboardingJoinSubtitle": "Enter the invite code from whoever set yours up.",
+  "onboardingCreateSubtitle": "You can invite the rest of your household next.",
+  "inviteCodeLabel": "Invite code",
+  "householdNameLabel": "Household name",
+  "householdNameHint": "The Marx house",
+  "yourNameLabel": "Your name",
+  "yourNameHelper": "What the rest of the household will see.",
+  "joinButton": "Join",
+  "createHouseholdButton": "Create household",
+  "toggleStartInstead": "Start a new household instead",
+  "toggleHaveCode": "I have an invite code",
+  "householdUnreachableTitle": "Cannot reach your household",
+  "householdFailureNotFound": "That code does not match a household. Check it and try again.",
+  "householdFailureValidation": "Check what you typed and try again.",
+  "householdFailureConflict": "Something got in the way. Try that again.",
+
+  "householdTitle": "Household",
+  "householdGone": "This household no longer exists.",
+  "inviteCodeCopied": "Invite code copied.",
+  "noInviteCode": "This household has no invite code right now.",
+  "shareToAdd": "Share this to add someone.",
+  "copyInviteCode": "Copy invite code",
+  "calendarTitle": "Calendar",
+  "calendarNotLinked": "Not linked",
+  "calendarPlansGoOn": "Plans go on \"{name}\"",
+  "@calendarPlansGoOn": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "membersCount": "{count, plural, =1{1 member} other{{count} members}}",
+  "@membersCount": {
+    "placeholders": {
+      "count": {"type": "num"}
+    }
+  },
+  "ownerChip": "Owner",
+
+  "weeklyDigestTitle": "Weekly digest",
+  "digestOff": "Off",
+  "digestDayAt": "{day} at {hour}",
+  "@digestDayAt": {
+    "placeholders": {
+      "day": {"type": "String", "example": "Sunday"},
+      "hour": {"type": "String", "example": "9am"}
+    }
+  },
+  "digestDay": "Day",
+  "digestTime": "Time",
+  "notificationsOff": "Notifications are switched off for Kith. Turn them on in your phone settings, then try again.",
+  "digestFailureNetwork": "The digest setting could not be saved. Try again once you are connected.",
+  "digestFailurePermission": "You are not allowed to change this household. Ask whoever set it up.",
+  "digestFailureNotFound": "This household is no longer here.",
+  "digestFailureConflict": "That was changed somewhere else. Try again.",
+  "digestFailureUnknown": "The digest could not be set up on this device.",
+  "weekdayFullMon": "Monday",
+  "weekdayFullTue": "Tuesday",
+  "weekdayFullWed": "Wednesday",
+  "weekdayFullThu": "Thursday",
+  "weekdayFullFri": "Friday",
+  "weekdayFullSat": "Saturday",
+  "weekdayFullSun": "Sunday",
+  "hourAm": "am",
+  "hourPm": "pm",
+  "hourLabel": "{twelve}{suffix}",
+  "@hourLabel": {
+    "description": "An hour of the day. Every spelling is provided: twelve-hour number with its am/pm suffix, and the 24-hour number; each locale composes the ones its clock uses, e.g. '9am' in English, '9:00' or '9 h' where the clock runs to 24.",
+    "placeholders": {
+      "twelve": {"type": "int"},
+      "suffix": {"type": "String", "example": "am"},
+      "hour24": {"type": "int"}
+    }
+  },
+
+  "householdCalendarTitle": "Household calendar",
+  "calendarNoneLinkedBody": "No calendar linked. Plans are kept in Kith and go nowhere else.",
+  "calendarLinkedBody": "Plans go on \"{name}\". Anything subscribed to that calendar, the frame included, shows them too.",
+  "@calendarLinkedBody": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "unlinkButton": "Unlink",
+  "calendarUnlinked": "Calendar unlinked. Events already on it were left where they are.",
+  "calendarConnectBody": "Connect your Google account to choose a calendar. Kith reads the list of calendars you already have, and writes only the plans you make here.",
+  "calendarConnectButton": "Connect Google Calendar",
+  "calendarNoneWritable": "This account has no calendar Kith can write to. Make one in Google Calendar, or ask whoever owns the household calendar to share it with you.",
+  "yourCalendars": "Your calendars",
+  "calendarPrimary": "Your own calendar",
+  "linkedChip": "Linked",
+  "calendarNowLinked": "Plans now go on \"{name}\".",
+  "@calendarNowLinked": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "calendarFailureNetwork": "Google Calendar could not be reached. Try again once you are connected.",
+  "calendarFailurePermission": "Kith is not allowed to use that calendar. Connect the Google account again, and pick a calendar you can write to.",
+  "calendarFailureNotFound": "That calendar is no longer there.",
+  "calendarFailureConflict": "That calendar was changed somewhere else. Try again.",
+  "calendarFailureUnknown": "Something went wrong with the calendar. Try again.",
+  "calendarOutOfStep": "Plans may be out of step with the calendar.",
+
+  "contactsTitle": "Contacts",
+  "sortTooltip": "Sort",
+  "importTooltip": "Import from contacts",
+  "labelsTooltip": "Relationship labels",
+  "addContactTooltip": "Add a contact",
+  "searchHint": "Search names, tags or a guardian",
+  "filterAll": "All",
+  "filterArchived": "Archived",
+  "noLabel": "No label",
+  "emptyNeedsLabel": "Add a relationship label first, so contacts have somewhere to go.",
+  "manageLabels": "Manage labels",
+  "emptyNoContacts": "Nobody here yet. Add the first contact.",
+  "emptyFiltered": "Nothing matches what you are looking for.",
+  "clearFilters": "Clear filters",
+  "contactFailurePermission": "You are not allowed to change this household.",
+  "contactFailureNotFound": "That is no longer there. Go back and try again.",
+  "contactFailureConflict": "That label already exists.",
+
+  "addContactTitle": "Add a contact",
+  "editContactTitle": "Edit contact",
+  "contactGone": "That contact is no longer here.",
+  "nameLabel": "Name",
+  "relationshipLabel": "Relationship",
+  "cadenceSection": "How often you want to see them",
+  "customCadenceLabel": "Every how many days",
+  "customCadenceChip": "Custom",
+  "prioritySection": "Priority",
+  "priorityLow": "Low",
+  "priorityNormal": "Normal",
+  "priorityHigh": "High",
+  "reachSection": "How to reach them",
+  "phoneLabel": "Phone",
+  "addressLabel": "Address",
+  "guardianSection": "Parent or guardian",
+  "guardianHelper": "For a kid's friend, the person you actually text.",
+  "guardianNameLabel": "Guardian name",
+  "guardianPhoneLabel": "Guardian phone",
+  "birthdayFieldLabel": "Birthday",
+  "birthdayFieldHelper": "Like 14 Mar, or 14 Mar 1988. The year is optional.",
+  "tagsLabel": "Tags",
+  "tagsHelper": "Separate tags with commas.",
+  "notesLabel": "Notes",
+  "seeTheirHangouts": "See their hangouts",
+  "restoreContact": "Restore contact",
+  "archiveContact": "Archive contact",
+
+  "importContactsTitle": "Import contacts",
+  "importNeedsLabel": "Add a relationship label first, so imported contacts have somewhere to go.",
+  "importPermissionDenied": "Kith cannot see your contacts. Allow access in your phone settings, then try again.",
+  "importDone": "{count, plural, =1{1 contact added.} other{{count} contacts added.}}",
+  "@importDone": {
+    "placeholders": {
+      "count": {"type": "num"}
+    }
+  },
+  "importNobody": "There is nobody in your address book to import.",
+  "importFileThemAs": "File them as",
+  "importSeeThem": "See them",
+  "importNobodyChosen": "Nobody chosen",
+  "importChosen": "{count} chosen",
+  "@importChosen": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "importSelectNone": "None",
+  "importSelectAll": "All",
+  "importButton": "{count, plural, =1{Import 1 contact} other{Import {count} contacts}}",
+  "@importButton": {
+    "placeholders": {
+      "count": {"type": "num"}
+    }
+  },
+  "importIntro": "Kith can read your phone contacts so you can pick who to track. Nothing is sent anywhere, and nothing is written back to your address book.",
+  "importChooseButton": "Choose from contacts",
+  "importAlreadyHere": "Already in Kith",
+  "importNoDetails": "No details",
+
+  "labelsTitle": "Relationship labels",
+  "addLabelTooltip": "Add a label",
+  "labelFieldLabel": "Label",
+  "labelsEmpty": "No labels yet. Add one, and contacts have somewhere to go.",
+  "renameLabelTooltip": "Rename {name}",
+  "@renameLabelTooltip": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "deleteLabelTooltip": "Delete {name}",
+  "@deleteLabelTooltip": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "renameLabelTitle": "Rename label",
+  "keepOneLabel": "Keep at least one label for contacts to use.",
+  "deleteLabelTitle": "Delete \"{name}\"",
+  "@deleteLabelTitle": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "reassignPrompt": "Move everyone filed under it to:",
+
+  "logHangoutTitle": "Log a hangout",
+  "editHangoutTitle": "Edit hangout",
+  "hangoutGone": "That hangout is no longer here.",
+  "hangoutNeedsContact": "Add a contact first, so there is somebody to have seen.",
+  "whenSection": "When",
+  "whoYouSawSection": "Who you saw",
+  "searchContactsHint": "Search contacts",
+  "nobodyMatches": "Nobody matches what you are looking for.",
+  "chooseWhoYouSaw": "Choose who you saw.",
+  "whoFromHouseSection": "Who from the house was there",
+  "noteLabel": "Note",
+  "noteHelper": "Optional. What made it worth remembering.",
+  "logItButton": "Log it",
+  "deleteHangout": "Delete hangout",
+  "hangoutsTitle": "Hangouts",
+  "hangoutsWithTitle": "Hangouts with {name}",
+  "@hangoutsWithTitle": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "hangoutsEmpty": "Nothing logged yet. The first hangout goes here.",
+  "someoneSinceRemoved": "Someone since removed",
+  "withAttendees": "With {names}",
+  "@withAttendees": {
+    "placeholders": {
+      "names": {"type": "String"}
+    }
+  },
+  "justTheTwoOfYou": "Just the two of you",
+  "hangoutFailureNotFound": "That hangout is no longer there.",
+  "hangoutFailureConflict": "That hangout was changed somewhere else. Try again.",
+
+  "reconnectTitle": "Reconnect",
+  "birthdaysMore": "{count, plural, =1{1 more this month.} other{{count} more this month.}}",
+  "@birthdaysMore": {
+    "placeholders": {
+      "count": {"type": "num"}
+    }
+  },
+  "planItButton": "Plan it",
+  "plannedWith": "Planned with {name} for {day}.",
+  "@plannedWith": {
+    "placeholders": {
+      "name": {"type": "String"},
+      "day": {"type": "String", "example": "Tue 12 Aug"}
+    }
+  },
+  "addedToCalendar": "Added to the calendar.",
+  "notAskingUntil": "Not asking about {name} until {day}.",
+  "@notAskingUntil": {
+    "placeholders": {
+      "name": {"type": "String"},
+      "day": {"type": "String"}
+    }
+  },
+  "plannedChip": "Planned {day}",
+  "@plannedChip": {
+    "placeholders": {
+      "day": {"type": "String"}
+    }
+  },
+  "reconnectAllFresh": "Nobody is overdue. Everyone you track has been seen inside the cadence you set for them.",
+  "reconnectNoContacts": "Nobody here yet. Add the people you want to keep up with and they will show up here when it has been a while.",
+  "addContactsButton": "Add contacts",
+  "suggestionFailureNotFound": "That plan is no longer there.",
+  "suggestionFailureConflict": "That plan was changed somewhere else. Try again."
+}

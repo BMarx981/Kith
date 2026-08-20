@@ -1,8 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kith/core/result/failure.dart';
 import 'package:kith/features/suggestions/presentation/suggestion_failure_message.dart';
+import 'package:kith/l10n/gen/app_localizations_en.dart';
 
 void main() {
+  final l10n = AppLocalizationsEn();
+
   test('every failure type has copy of its own', () {
     const failures = <Failure>[
       NetworkFailure('offline'),
@@ -15,7 +18,7 @@ void main() {
     ];
 
     final messages = [
-      for (final failure in failures) suggestionFailureMessage(failure),
+      for (final failure in failures) suggestionFailureMessage(l10n, failure),
     ];
 
     expect(messages.toSet(), hasLength(failures.length));
@@ -27,6 +30,7 @@ void main() {
   test('a validation failure is shown as the domain wrote it', () {
     expect(
       suggestionFailureMessage(
+        l10n,
         const ValidationFailure('Choose who the plan is with.'),
       ),
       'Choose who the plan is with.',
@@ -40,7 +44,7 @@ void main() {
       UnknownFailure('null check operator on a null value'),
     ]) {
       expect(
-        suggestionFailureMessage(failure),
+        suggestionFailureMessage(l10n, failure),
         isNot(contains(failure.message)),
       );
     }

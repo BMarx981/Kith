@@ -1,7 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kith/data/models/contact_priority.dart';
+import 'package:kith/l10n/gen/app_localizations_en.dart';
 
 void main() {
+  final l10n = AppLocalizationsEn();
+
   group('ContactPriority', () {
     test('wire names are stable and distinct', () {
       expect(ContactPriority.low.wireName, 'low');
@@ -39,9 +42,9 @@ void main() {
     });
 
     test('labels each level for the editor', () {
-      expect(ContactPriority.low.label, 'Low');
-      expect(ContactPriority.normal.label, 'Normal');
-      expect(ContactPriority.high.label, 'High');
+      expect(ContactPriority.low.label(l10n), 'Low');
+      expect(ContactPriority.normal.label(l10n), 'Normal');
+      expect(ContactPriority.high.label(l10n), 'High');
     });
   });
 }

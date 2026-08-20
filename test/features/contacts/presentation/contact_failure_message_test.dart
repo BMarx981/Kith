@@ -1,8 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kith/core/result/failure.dart';
 import 'package:kith/features/contacts/presentation/contact_failure_message.dart';
+import 'package:kith/l10n/gen/app_localizations_en.dart';
 
 void main() {
+  final l10n = AppLocalizationsEn();
+
   // The log messages are deliberately unlike any copy, so the "never leaks"
   // test below cannot pass by coincidence.
   const failures = <Failure>[
@@ -18,7 +21,7 @@ void main() {
   group('contactFailureMessage', () {
     test('says something for every failure type', () {
       for (final failure in failures) {
-        final message = contactFailureMessage(failure);
+        final message = contactFailureMessage(l10n, failure);
         expect(message, isNotEmpty, reason: failure.name);
         expect(message, endsWith('.'), reason: failure.name);
       }
@@ -29,6 +32,7 @@ void main() {
       () {
         expect(
           contactFailureMessage(
+            l10n,
             const ValidationFailure('Give the contact a name.'),
           ),
           'Give the contact a name.',
@@ -40,7 +44,7 @@ void main() {
       for (final failure in failures) {
         if (failure is ValidationFailure) continue;
         expect(
-          contactFailureMessage(failure),
+          contactFailureMessage(l10n, failure),
           isNot(contains(failure.message)),
           reason: failure.name,
         );

@@ -1,3 +1,5 @@
+import 'package:kith/l10n/gen/app_localizations.dart';
+
 /// When the weekly digest next fires.
 ///
 /// Pure and clock-free: "now" is passed in, so the answer is reproducible in a
@@ -47,27 +49,28 @@ abstract final class DigestSchedule {
   }
 
   /// [weekday] written out, Monday being 1.
-  static String dayLabel(int weekday) => _days[(weekday - 1) % 7];
+  static String dayLabel(int weekday, AppLocalizations l10n) =>
+      switch ((weekday - 1) % 7) {
+        0 => l10n.weekdayFullMon,
+        1 => l10n.weekdayFullTue,
+        2 => l10n.weekdayFullWed,
+        3 => l10n.weekdayFullThu,
+        4 => l10n.weekdayFullFri,
+        5 => l10n.weekdayFullSat,
+        _ => l10n.weekdayFullSun,
+      };
 
-  /// [hour] on a 12-hour clock: "9am", "12pm", "11pm".
+  /// [hour] as a time of day: "9am" in English, "9:00" where the clock runs
+  /// to 24.
   ///
-  /// Hand-rolled for the same reason `DayLabel` is: the app is English-only in
-  /// v1, and one time format is not worth a package and a locale-loading step
-  /// in every test.
-  static String hourLabel(int hour) {
+  /// One ARB message given every spelling of the hour — 12-hour number,
+  /// am/pm suffix, 24-hour number — so each locale composes the ones its
+  /// clock uses. Hand-rolled for the same reason `DayLabel` is: one time
+  /// format is not worth `DateFormat`'s locale-loading step in every test.
+  static String hourLabel(int hour, AppLocalizations l10n) {
     final wrapped = hour % 24;
-    final suffix = wrapped < 12 ? 'am' : 'pm';
+    final suffix = wrapped < 12 ? l10n.hourAm : l10n.hourPm;
     final twelve = wrapped % 12 == 0 ? 12 : wrapped % 12;
-    return '$twelve$suffix';
+    return l10n.hourLabel(twelve, suffix, wrapped);
   }
-
-  static const _days = [
-    'Monday',
-    'Tuesday',
-    'Wednesday',
-    'Thursday',
-    'Friday',
-    'Saturday',
-    'Sunday',
-  ];
 }

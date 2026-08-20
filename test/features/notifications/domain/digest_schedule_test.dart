@@ -1,7 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kith/features/notifications/domain/digest_schedule.dart';
+import 'package:kith/l10n/gen/app_localizations_en.dart';
+import 'package:kith/l10n/gen/app_localizations_fr.dart';
 
 void main() {
+  final l10n = AppLocalizationsEn();
+
   group('DigestSchedule.next', () {
     // 2026-08-18 is a Tuesday.
     final tuesdayMorning = DateTime(2026, 8, 18, 7, 30);
@@ -107,18 +111,26 @@ void main() {
 
   group('DigestSchedule.dayLabel', () {
     test('names every weekday', () {
-      expect(DigestSchedule.dayLabel(DateTime.monday), 'Monday');
-      expect(DigestSchedule.dayLabel(DateTime.sunday), 'Sunday');
+      expect(DigestSchedule.dayLabel(DateTime.monday, l10n), 'Monday');
+      expect(DigestSchedule.dayLabel(DateTime.sunday, l10n), 'Sunday');
     });
   });
 
   group('DigestSchedule.hourLabel', () {
-    test('writes the hour as a 12-hour clock', () {
-      expect(DigestSchedule.hourLabel(0), '12am');
-      expect(DigestSchedule.hourLabel(9), '9am');
-      expect(DigestSchedule.hourLabel(12), '12pm');
-      expect(DigestSchedule.hourLabel(13), '1pm');
-      expect(DigestSchedule.hourLabel(23), '11pm');
+    test('writes the hour as a 12-hour clock in English', () {
+      expect(DigestSchedule.hourLabel(0, l10n), '12am');
+      expect(DigestSchedule.hourLabel(9, l10n), '9am');
+      expect(DigestSchedule.hourLabel(12, l10n), '12pm');
+      expect(DigestSchedule.hourLabel(13, l10n), '1pm');
+      expect(DigestSchedule.hourLabel(23, l10n), '11pm');
+    });
+
+    test('writes the hour as a 24-hour clock where the locale does', () {
+      final fr = AppLocalizationsFr();
+
+      expect(DigestSchedule.hourLabel(9, fr), '9 h');
+      expect(DigestSchedule.hourLabel(13, fr), '13 h');
+      expect(DigestSchedule.hourLabel(0, fr), '0 h');
     });
   });
 }

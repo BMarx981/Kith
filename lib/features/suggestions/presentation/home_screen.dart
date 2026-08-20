@@ -27,6 +27,7 @@ import 'package:kith/features/suggestions/application/suggestion_providers.dart'
 import 'package:kith/features/suggestions/domain/snooze_horizon.dart';
 import 'package:kith/features/suggestions/engine/suggestion.dart';
 import 'package:kith/features/suggestions/presentation/suggestion_failure_message.dart';
+import 'package:kith/l10n/l10n.dart';
 import 'package:kith/routing/app_router.dart';
 
 /// The landing screen: who to reconnect with, ranked.
@@ -67,27 +68,28 @@ class HomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final householdId = ref.watch(currentHouseholdIdProvider);
 
+    final l10n = context.l10n;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Reconnect'),
+        title: Text(l10n.reconnectTitle),
         actions: [
           IconButton(
             key: hangoutsKey,
             onPressed: () => context.router.push(HangoutsRoute()),
             icon: const Icon(KithIcons.hangout),
-            tooltip: 'Hangouts',
+            tooltip: l10n.hangoutsTitle,
           ),
           IconButton(
             key: contactsKey,
             onPressed: () => context.router.push(const ContactsRoute()),
             icon: const Icon(KithIcons.people),
-            tooltip: 'Contacts',
+            tooltip: l10n.contactsTitle,
           ),
           IconButton(
             key: householdKey,
             onPressed: () => context.router.push(const HouseholdRoute()),
             icon: const Icon(KithIcons.household),
-            tooltip: 'Household',
+            tooltip: l10n.householdTitle,
           ),
         ],
       ),
@@ -203,7 +205,9 @@ class _ReconnectBodyState extends ConsumerState<_ReconnectBody> {
     final body = switch ((contacts, hangouts, plans)) {
       (AsyncError(:final error), _, _) ||
       (_, AsyncError(:final error), _) ||
-      (_, _, AsyncError(:final error)) => _Message(_messageFor(error)),
+      (_, _, AsyncError(:final error)) => _Message(
+        _messageFor(context.l10n, error),
+      ),
       (AsyncData(value: final all), AsyncData(), AsyncData()) => _Suggestions(
         householdId: householdId,
         suggestions: ref.watch(suggestionsProvider(householdId)),
@@ -226,10 +230,11 @@ class _ReconnectBodyState extends ConsumerState<_ReconnectBody> {
 
   /// Streams surface domain failures; anything else is a bug rather than a
   /// condition the user can act on, and reads as the generic message.
-  static String _messageFor(Object error) => switch (error) {
-    final Failure failure => suggestionFailureMessage(failure),
-    _ => 'Something went wrong. Try again.',
-  };
+  static String _messageFor(AppLocalizations l10n, Object error) =>
+      switch (error) {
+        final Failure failure => suggestionFailureMessage(l10n, failure),
+        _ => l10n.errorGeneric,
+      };
 }
 
 /// The birthdays landing in the next month, above the ranking.
@@ -287,7 +292,7 @@ class _Birthdays extends StatelessWidget {
                       ),
                       Expanded(
                         child: Text(
-                          birthday.headline,
+                          birthday.headline(context.l10n),
                           style: theme.textTheme.bodyMedium,
                         ),
                       ),
@@ -301,9 +306,7 @@ class _Birthdays extends StatelessWidget {
                     top: KithSpacing.xxs,
                   ),
                   child: Text(
-                    hidden == 1
-                        ? '1 more this month.'
-                        : '$hidden more this month.',
+                    context.l10n.birthdaysMore(hidden),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -397,7 +400,7 @@ class _SuggestionCard extends ConsumerWidget {
                         Text(contact.name, style: theme.textTheme.titleMedium),
                         const SizedBox(height: KithSpacing.xxs),
                         Text(
-                          suggestion.reason,
+                          suggestion.reason(context.l10n),
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
@@ -425,12 +428,12 @@ class _SuggestionCard extends ConsumerWidget {
                       onPressed: busy
                           ? null
                           : () => _defer(context, ref, horizon),
-                      child: Text(horizon.label),
+                      child: Text(horizon.label(context.l10n)),
                     ),
                   FilledButton(
                     key: HomeScreen.planKey(contact.id),
                     onPressed: busy ? null : () => _plan(context, ref),
-                    child: const Text('Plan it'),
+                    child: Text(context.l10n.planItButton),
                   ),
                 ],
               ),
@@ -460,6 +463,7 @@ class _SuggestionCard extends ConsumerWidget {
     );
     if (picked == null || !context.mounted) return;
 
+    final l10n = context.l10n;
     final outcome = await ref
         .read(suggestionActionControllerProvider.notifier)
         .plan(
@@ -474,8 +478,9 @@ class _SuggestionCard extends ConsumerWidget {
       ref,
       plan: outcome?.plan,
       done: _plannedMessage(
+        l10n,
         outcome,
-        day: DayLabel.of(CalendarDay.of(picked), today: today),
+        day: DayLabel.of(CalendarDay.of(picked), today: today, l10n: l10n),
       ),
     );
   }
@@ -487,13 +492,18 @@ class _SuggestionCard extends ConsumerWidget {
   /// calendar's own words rather than the plan's: a refusal here is Google's,
   /// and telling somebody they may not change this household would send them
   /// looking in the wrong place.
-  String _plannedMessage(PlanOutcome? outcome, {required String day}) {
-    final planned = 'Planned with ${suggestion.contact.name} for $day.';
+  String _plannedMessage(
+    AppLocalizations l10n,
+    PlanOutcome? outcome, {
+    required String day,
+  }) {
+    final planned = l10n.plannedWith(suggestion.contact.name, day);
     return switch (outcome) {
       null => '',
-      PlanOutcome(isOnCalendar: true) => '$planned Added to the calendar.',
+      PlanOutcome(isOnCalendar: true) =>
+        '$planned ${l10n.addedToCalendar}',
       PlanOutcome(calendarFailure: final failure?) =>
-        '$planned ${calendarFailureMessage(failure)}',
+        '$planned ${calendarFailureMessage(l10n, failure)}',
       _ => planned,
     };
   }
@@ -505,6 +515,7 @@ class _SuggestionCard extends ConsumerWidget {
     SnoozeHorizon horizon,
   ) async {
     final today = CalendarDay.of(ref.read(clockProvider).now());
+    final l10n = context.l10n;
     final plan = await ref
         .read(suggestionActionControllerProvider.notifier)
         .snooze(
@@ -519,8 +530,10 @@ class _SuggestionCard extends ConsumerWidget {
       plan: plan,
       done: plan == null
           ? ''
-          : 'Not asking about ${suggestion.contact.name} until '
-                '${DayLabel.of(plan.plannedFor, today: today)}.',
+          : l10n.notAskingUntil(
+              suggestion.contact.name,
+              DayLabel.of(plan.plannedFor, today: today, l10n: l10n),
+            ),
     );
   }
 
@@ -540,6 +553,7 @@ class _SuggestionCard extends ConsumerWidget {
     required PlannedHangout? plan,
     required String done,
   }) {
+    final l10n = context.l10n;
     final controller = ref.read(suggestionActionControllerProvider.notifier);
     final failure = ref.read(suggestionActionControllerProvider).failure;
     final messenger = ScaffoldMessenger.of(context)..hideCurrentSnackBar();
@@ -548,8 +562,8 @@ class _SuggestionCard extends ConsumerWidget {
         SnackBar(
           content: Text(
             failure == null
-                ? 'Something went wrong. Try again.'
-                : suggestionFailureMessage(failure),
+                ? l10n.errorGeneric
+                : suggestionFailureMessage(l10n, failure),
           ),
         ),
       );
@@ -559,7 +573,7 @@ class _SuggestionCard extends ConsumerWidget {
       SnackBar(
         content: Text(done),
         action: SnackBarAction(
-          label: 'Undo',
+          label: l10n.undoButton,
           onPressed: () {
             unawaited(
               controller.cancel(householdId: householdId, plan: plan),
@@ -585,7 +599,7 @@ class _PlanChip extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final today = CalendarDay.of(ref.watch(nowProvider));
-    final day = DayLabel.of(plan.plannedFor, today: today);
+    final day = DayLabel.of(plan.plannedFor, today: today, l10n: context.l10n);
     // Confirmed means one thing in Kith: the plan is on the household's
     // calendar, and so on the frame.
     final onCalendar = plan.status == PlannedHangoutStatus.confirmed;
@@ -593,7 +607,7 @@ class _PlanChip extends ConsumerWidget {
       avatar: onCalendar
           ? const Icon(KithIcons.calendar, size: KithSpacing.md)
           : null,
-      label: Text('Planned $day'),
+      label: Text(context.l10n.plannedChip(day)),
     );
   }
 }
@@ -615,8 +629,8 @@ class _SyncNotice extends StatelessWidget {
         vertical: KithSpacing.xs,
       ),
       child: Text(
-        'Plans may be out of step with the calendar. '
-        '${calendarFailureMessage(failure)}',
+        '${context.l10n.calendarOutOfStep} '
+        '${calendarFailureMessage(context.l10n, failure)}',
         style: theme.textTheme.bodySmall?.copyWith(
           color: theme.colorScheme.onSurfaceVariant,
         ),
@@ -634,17 +648,12 @@ class _Empty extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final (text, action) = hasAnyContact
-        ? (
-            'Nobody is overdue. Everyone you track has been seen inside the '
-                'cadence you set for them.',
-            null,
-          )
+        ? (context.l10n.reconnectAllFresh, null)
         : (
-            'Nobody here yet. Add the people you want to keep up with and '
-                'they will show up here when it has been a while.',
+            context.l10n.reconnectNoContacts,
             TextButton(
               onPressed: () => context.router.push(const ContactsRoute()),
-              child: const Text('Add contacts'),
+              child: Text(context.l10n.addContactsButton),
             ),
           );
 

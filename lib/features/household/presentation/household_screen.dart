@@ -16,6 +16,7 @@ import 'package:kith/features/notifications/application/digest_controller.dart';
 import 'package:kith/features/notifications/application/notification_providers.dart';
 import 'package:kith/features/notifications/domain/digest_schedule.dart';
 import 'package:kith/features/notifications/presentation/digest_failure_message.dart';
+import 'package:kith/l10n/l10n.dart';
 import 'package:kith/routing/app_router.dart';
 
 /// The household's members, and the code that invites more of them.
@@ -50,13 +51,13 @@ class HouseholdScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Household'),
+        title: Text(context.l10n.householdTitle),
         actions: [
           IconButton(
             key: signOutKey,
             onPressed: () => ref.read(authServiceProvider).signOut(),
             icon: const Icon(KithIcons.signOut),
-            tooltip: 'Sign out',
+            tooltip: context.l10n.signOut,
           ),
         ],
       ),
@@ -76,6 +77,7 @@ class _HouseholdBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
     final household = ref.watch(householdProvider(householdId));
     final members = ref.watch(householdMembersProvider(householdId));
 
@@ -84,8 +86,8 @@ class _HouseholdBody extends ConsumerWidget {
       children: [
         switch (household) {
           AsyncData(value: final value?) => _InviteCard(household: value),
-          AsyncData() => const _Message('This household no longer exists.'),
-          AsyncError(:final error) => _Message(_messageFor(error)),
+          AsyncData() => _Message(l10n.householdGone),
+          AsyncError(:final error) => _Message(_messageFor(l10n, error)),
           _ => const _Loading(),
         },
         const Divider(height: KithSpacing.xl),
@@ -95,7 +97,7 @@ class _HouseholdBody extends ConsumerWidget {
         const Divider(height: KithSpacing.xl),
         switch (members) {
           AsyncData(:final value) => _MemberList(members: value),
-          AsyncError(:final error) => _Message(_messageFor(error)),
+          AsyncError(:final error) => _Message(_messageFor(l10n, error)),
           _ => const _Loading(),
         },
       ],
@@ -104,10 +106,11 @@ class _HouseholdBody extends ConsumerWidget {
 
   /// Streams surface domain failures; anything else is a bug rather than a
   /// condition the user can act on, and reads as the generic message.
-  static String _messageFor(Object error) => switch (error) {
-    final Failure failure => householdFailureMessage(failure),
-    _ => 'Something went wrong. Try again.',
-  };
+  static String _messageFor(AppLocalizations l10n, Object error) =>
+      switch (error) {
+        final Failure failure => householdFailureMessage(l10n, failure),
+        _ => l10n.errorGeneric,
+      };
 }
 
 class _InviteCard extends StatelessWidget {
@@ -116,16 +119,18 @@ class _InviteCard extends StatelessWidget {
   final Household household;
 
   Future<void> _copy(BuildContext context, String code) async {
+    final message = context.l10n.inviteCodeCopied;
     await Clipboard.setData(ClipboardData(text: code));
     if (!context.mounted) return;
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(const SnackBar(content: Text('Invite code copied.')));
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
     final code = household.inviteCode;
 
     return Padding(
@@ -137,7 +142,7 @@ class _InviteCard extends StatelessWidget {
           const SizedBox(height: KithSpacing.md),
           if (code == null)
             Text(
-              'This household has no invite code right now.',
+              l10n.noInviteCode,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -152,12 +157,12 @@ class _InviteCard extends StatelessWidget {
                     letterSpacing: 2,
                   ),
                 ),
-                subtitle: const Text('Share this to add someone.'),
+                subtitle: Text(l10n.shareToAdd),
                 trailing: IconButton(
                   key: HouseholdScreen.copyCodeKey,
                   onPressed: () => _copy(context, code.value),
                   icon: const Icon(KithIcons.copy),
-                  tooltip: 'Copy invite code',
+                  tooltip: l10n.copyInviteCode,
                 ),
               ),
             ),
@@ -183,9 +188,11 @@ class _CalendarRow extends ConsumerWidget {
     return ListTile(
       key: HouseholdScreen.calendarKey,
       leading: const Icon(KithIcons.calendar),
-      title: const Text('Calendar'),
+      title: Text(context.l10n.calendarTitle),
       subtitle: Text(
-        name == null ? 'Not linked' : 'Plans go on "$name"',
+        name == null
+            ? context.l10n.calendarNotLinked
+            : context.l10n.calendarPlansGoOn(name),
       ),
       onTap: () => context.router.push(const CalendarSettingsRoute()),
     );
@@ -207,6 +214,7 @@ class _DigestSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
     final member = ref.watch(currentMemberProvider(householdId));
     final state = ref.watch(digestControllerProvider);
     final day = member?.digestDay;
@@ -224,12 +232,14 @@ class _DigestSection extends ConsumerWidget {
         SwitchListTile(
           key: HouseholdScreen.digestKey,
           secondary: const Icon(KithIcons.digest),
-          title: const Text('Weekly digest'),
+          title: Text(l10n.weeklyDigestTitle),
           subtitle: Text(
             day == null
-                ? 'Off'
-                : '${DigestSchedule.dayLabel(day)} at '
-                      '${DigestSchedule.hourLabel(hour)}',
+                ? l10n.digestOff
+                : l10n.digestDayAt(
+                    DigestSchedule.dayLabel(day, l10n),
+                    DigestSchedule.hourLabel(hour, l10n),
+                  ),
           ),
           value: day != null,
           // Inert until the roster has arrived: a switch that reads "off"
@@ -260,14 +270,14 @@ class _DigestSection extends ConsumerWidget {
                     // "Wednesday" is wider than half the screen. Expanding
                     // lets it ellipsize instead of overflowing the row.
                     isExpanded: true,
-                    decoration: const InputDecoration(labelText: 'Day'),
+                    decoration: InputDecoration(labelText: l10n.digestDay),
                     items: [
                       for (var weekday = DateTime.monday;
                           weekday <= DateTime.sunday;
                           weekday++)
                         DropdownMenuItem(
                           value: weekday,
-                          child: Text(DigestSchedule.dayLabel(weekday)),
+                          child: Text(DigestSchedule.dayLabel(weekday, l10n)),
                         ),
                     ],
                     onChanged: state.isBusy
@@ -280,14 +290,14 @@ class _DigestSection extends ConsumerWidget {
                     key: HouseholdScreen.digestHourKey,
                     initialValue: hour,
                     isExpanded: true,
-                    decoration: const InputDecoration(labelText: 'Time'),
+                    decoration: InputDecoration(labelText: l10n.digestTime),
                     items: [
                       for (var at = DigestSchedule.minHour;
                           at <= DigestSchedule.maxHour;
                           at++)
                         DropdownMenuItem(
                           value: at,
-                          child: Text(DigestSchedule.hourLabel(at)),
+                          child: Text(DigestSchedule.hourLabel(at, l10n)),
                         ),
                     ],
                     onChanged: state.isBusy
@@ -307,8 +317,7 @@ class _DigestSection extends ConsumerWidget {
               KithSpacing.sm,
             ),
             child: Text(
-              'Notifications are switched off for Kith. Turn them on in your '
-              'phone settings, then try again.',
+              l10n.notificationsOff,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -323,7 +332,7 @@ class _DigestSection extends ConsumerWidget {
               KithSpacing.sm,
             ),
             child: Text(
-              digestFailureMessage(failure),
+              digestFailureMessage(l10n, failure),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.error,
               ),
@@ -349,7 +358,7 @@ class _MemberList extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: KithSpacing.md),
           child: Text(
-            members.length == 1 ? '1 member' : '${members.length} members',
+            context.l10n.membersCount(members.length),
             style: theme.textTheme.titleSmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -366,7 +375,7 @@ class _MemberList extends StatelessWidget {
             title: Text(member.displayName),
             subtitle: Text(member.email),
             trailing: member.role == MemberRole.owner
-                ? const Chip(label: Text('Owner'))
+                ? Chip(label: Text(context.l10n.ownerChip))
                 : null,
           ),
       ],

@@ -6,8 +6,11 @@ import 'package:kith/data/models/planned_hangout_status.dart';
 import 'package:kith/features/contacts/domain/cadence.dart';
 import 'package:kith/features/hangouts/domain/freshness.dart';
 import 'package:kith/features/suggestions/engine/suggestion.dart';
+import 'package:kith/l10n/gen/app_localizations_en.dart';
 
 void main() {
+  final l10n = AppLocalizationsEn();
+
   final now = DateTime.utc(2026, 8, 18);
 
   Contact person({
@@ -45,7 +48,7 @@ void main() {
       );
 
       expect(
-        suggestion.reason,
+        suggestion.reason(l10n),
         "It's been 6 weeks — you usually see Marcus Bell monthly.",
       );
     });
@@ -56,7 +59,7 @@ void main() {
           contact: person(cadence: Cadence.biweekly),
           freshness: after(21, cadence: Cadence.biweekly),
           score: 1.5,
-        ).reason,
+        ).reason(l10n),
         "It's been 3 weeks — you usually see Marcus Bell every 2 weeks.",
       );
       expect(
@@ -64,7 +67,7 @@ void main() {
           contact: person(cadence: const Cadence.custom(45)),
           freshness: after(50, cadence: const Cadence.custom(45)),
           score: 1.1,
-        ).reason,
+        ).reason(l10n),
         "It's been 7 weeks — you usually see Marcus Bell every 45 days.",
       );
     });
@@ -76,11 +79,11 @@ void main() {
         score: null,
       );
 
-      expect(suggestion.reason, 'Nothing logged with Marcus Bell yet.');
+      expect(suggestion.reason(l10n), 'Nothing logged with Marcus Bell yet.');
     });
 
     test('carries the name, so it stands on its own away from the card', () {
-      expect(sample().reason, contains('Marcus Bell'));
+      expect(sample().reason(l10n), contains('Marcus Bell'));
     });
   });
 

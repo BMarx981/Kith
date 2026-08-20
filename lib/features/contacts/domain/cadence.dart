@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:kith/core/result/failure.dart';
 import 'package:kith/core/result/result.dart';
+import 'package:kith/l10n/gen/app_localizations.dart';
 
 /// How often you mean to see a contact, in days.
 ///
@@ -69,17 +70,39 @@ class Cadence {
   static Result<Cadence> parse(String input) {
     final trimmed = input.trim();
     if (trimmed.isEmpty) {
-      return const Err(ValidationFailure('Enter how many days.'));
+      return const Err(
+        ValidationFailure(
+          'Enter how many days.',
+          issue: ValidationIssue.cadenceEmpty,
+        ),
+      );
     }
     final days = int.tryParse(trimmed);
     if (days == null) {
-      return const Err(ValidationFailure('Use a whole number of days.'));
+      return const Err(
+        ValidationFailure(
+          'Use a whole number of days.',
+          issue: ValidationIssue.cadenceNotANumber,
+        ),
+      );
     }
     if (days < minDays) {
-      return const Err(ValidationFailure('Use at least $minDays day.'));
+      return const Err(
+        ValidationFailure(
+          'Use at least $minDays day.',
+          issue: ValidationIssue.cadenceTooShort,
+          args: {'min': minDays},
+        ),
+      );
     }
     if (days > maxDays) {
-      return const Err(ValidationFailure('Use at most $maxDays days.'));
+      return const Err(
+        ValidationFailure(
+          'Use at most $maxDays days.',
+          issue: ValidationIssue.cadenceTooLong,
+          args: {'max': maxDays},
+        ),
+      );
     }
     return Ok(Cadence.custom(days));
   }
@@ -88,26 +111,36 @@ class Cadence {
   bool get isPreset => presets.contains(this);
 
   /// How the interval is written in the UI.
-  String get label => switch (days) {
-    1 => 'Daily',
-    7 => 'Weekly',
-    14 => 'Every 2 weeks',
-    30 => 'Monthly',
-    91 => 'Every 3 months',
-    182 => 'Twice a year',
-    _ => 'Every $days days',
+  ///
+  /// A method taking [l10n] rather than a getter, like every label in the
+  /// domain layer: the wording belongs to the locale, and passing the lookup
+  /// in keeps this pure and table-testable with a concrete
+  /// `AppLocalizationsEn`.
+  String label(AppLocalizations l10n) => switch (days) {
+    1 => l10n.cadenceDaily,
+    7 => l10n.cadenceWeekly,
+    14 => l10n.cadenceBiweekly,
+    30 => l10n.cadenceMonthly,
+    91 => l10n.cadenceQuarterly,
+    182 => l10n.cadenceTwiceAYear,
+    _ => l10n.cadenceEveryDays(days),
   };
 
   /// The interval as it reads mid-sentence: "you usually see Marcus
   /// monthly", "you usually see Ana every 2 weeks".
   ///
-  /// [label] with its first letter dropped to lower case, rather than a
-  /// second table of wordings that could drift from the first. Every label is
-  /// ASCII and starts with a word, so the first code unit is the first letter.
-  String get phrase {
-    final label = this.label;
-    return label[0].toLowerCase() + label.substring(1);
-  }
+  /// Its own set of messages rather than [label] with the first letter
+  /// lowered: casing mid-sentence is a property of the language, not of the
+  /// string, and German would keep the capital this trick strips.
+  String phrase(AppLocalizations l10n) => switch (days) {
+    1 => l10n.cadencePhraseDaily,
+    7 => l10n.cadencePhraseWeekly,
+    14 => l10n.cadencePhraseBiweekly,
+    30 => l10n.cadencePhraseMonthly,
+    91 => l10n.cadencePhraseQuarterly,
+    182 => l10n.cadencePhraseTwiceAYear,
+    _ => l10n.cadencePhraseEveryDays(days),
+  };
 
   @override
   bool operator ==(Object other) =>

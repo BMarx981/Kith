@@ -4,6 +4,7 @@ import 'package:kith/data/models/contact_priority.dart';
 import 'package:kith/features/contacts/domain/birthday.dart';
 import 'package:kith/features/contacts/domain/cadence.dart';
 import 'package:kith/features/contacts/domain/upcoming_birthday.dart';
+import 'package:kith/l10n/gen/app_localizations_en.dart';
 
 /// 2026-03-01, a Sunday, well clear of any month boundary the tests lean on.
 final _now = DateTime.utc(2026, 3, 1, 9, 30);
@@ -26,6 +27,8 @@ Contact _contact({
 );
 
 void main() {
+  final l10n = AppLocalizationsEn();
+
   group('upcomingBirthdays', () {
     test('is empty when nobody has a birthday recorded', () {
       expect(
@@ -191,33 +194,33 @@ void main() {
 
     test('says today, tomorrow, or the date', () {
       expect(
-        only(const Birthday(month: 3, day: 1)).headline,
+        only(const Birthday(month: 3, day: 1)).headline(l10n),
         "Ana's birthday is today.",
       );
       expect(
-        only(const Birthday(month: 3, day: 2)).headline,
+        only(const Birthday(month: 3, day: 2)).headline(l10n),
         "Ana's birthday is tomorrow.",
       );
       expect(
-        only(const Birthday(month: 3, day: 14)).headline,
+        only(const Birthday(month: 3, day: 14)).headline(l10n),
         "Ana's birthday is on Sat 14 Mar.",
       );
     });
 
     test('names the age when the year is known', () {
       expect(
-        only(const Birthday(month: 3, day: 14, year: 1988)).headline,
+        only(const Birthday(month: 3, day: 14, year: 1988)).headline(l10n),
         'Ana turns 38 on Sat 14 Mar.',
       );
       expect(
-        only(const Birthday(month: 3, day: 1, year: 1988)).headline,
+        only(const Birthday(month: 3, day: 1, year: 1988)).headline(l10n),
         'Ana turns 38 today.',
       );
     });
 
     test('shows the year once the date leaves this one', () {
       expect(
-        only(const Birthday(month: 2, day: 28)).headline,
+        only(const Birthday(month: 2, day: 28)).headline(l10n),
         "Ana's birthday is on Sun 28 Feb 2027.",
       );
     });

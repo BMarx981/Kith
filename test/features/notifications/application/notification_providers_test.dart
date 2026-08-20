@@ -14,6 +14,7 @@ import 'package:kith/features/hangouts/application/hangout_providers.dart';
 import 'package:kith/features/household/application/household_providers.dart';
 import 'package:kith/features/notifications/application/notification_providers.dart';
 import 'package:kith/features/suggestions/application/suggestion_providers.dart';
+import 'package:kith/l10n/gen/app_localizations_en.dart';
 
 import '../../../helpers/fake_auth_service.dart';
 import '../../../helpers/fake_contact_repository.dart';
@@ -22,6 +23,8 @@ import '../../../helpers/fake_household_repository.dart';
 import '../../../helpers/fake_planned_hangout_repository.dart';
 
 void main() {
+  final l10n = AppLocalizationsEn();
+
   const householdId = 'hid-1';
   const owner = AuthUser(id: 'uid-1', email: 'brian@example.com');
   const partner = AuthUser(id: 'uid-2', email: 'sam@example.com');
@@ -138,7 +141,7 @@ void main() {
 
       expect(digest.overdue.single.contact.name, 'Marcus Bell');
       expect(digest.birthdays.single.turningAge, 36);
-      expect(digest.title, '1 person is overdue');
+      expect(digest.title(l10n), '1 person is overdue');
     });
 
     test('looks only a week ahead for birthdays', () async {

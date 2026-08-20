@@ -17,6 +17,8 @@ import 'package:kith/features/household/application/household_providers.dart';
 import 'package:kith/features/notifications/application/digest_controller.dart';
 import 'package:kith/features/notifications/application/notification_providers.dart';
 import 'package:kith/features/suggestions/application/suggestion_providers.dart';
+import 'package:kith/l10n/gen/app_localizations_en.dart';
+import 'package:kith/l10n/l10n_providers.dart';
 
 import '../../../helpers/fake_auth_service.dart';
 import '../../../helpers/fake_contact_repository.dart';
@@ -66,6 +68,9 @@ void main() {
     hangoutRepositoryProvider.overrideWithValue(hangouts),
     plannedHangoutRepositoryProvider.overrideWithValue(plans),
     notificationSchedulerProvider.overrideWithValue(scheduler),
+    // The digest is worded through the app's localizations, which resolve off
+    // the platform in the app; pinned to English here like the clock is.
+    appLocalizationsProvider.overrideWithValue(AppLocalizationsEn()),
     clockProvider.overrideWithValue(Clock.fixed(now)),
   ];
 

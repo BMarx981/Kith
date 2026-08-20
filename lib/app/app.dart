@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kith/app/theme.dart';
 import 'package:kith/app/widgets/app_splash.dart';
+import 'package:kith/l10n/l10n.dart';
 import 'package:kith/routing/app_router.dart';
 
 /// Root widget: wires the router and themes into a [MaterialApp].
@@ -12,7 +13,9 @@ class KithApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(appRouterProvider);
     return MaterialApp.router(
-      title: 'Kith',
+      onGenerateTitle: (context) => context.l10n.appTitle,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       debugShowCheckedModeBanner: false,
       theme: KithTheme.light,
       darkTheme: KithTheme.dark,

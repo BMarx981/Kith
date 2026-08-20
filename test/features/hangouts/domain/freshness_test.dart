@@ -1,9 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kith/features/contacts/domain/cadence.dart';
 import 'package:kith/features/hangouts/domain/freshness.dart';
+import 'package:kith/l10n/gen/app_localizations_en.dart';
 
 void main() {
   final now = DateTime.utc(2026, 8, 18);
+  final l10n = AppLocalizationsEn();
 
   Freshness at(int daysAgo, {Cadence cadence = Cadence.monthly}) =>
       Freshness.of(
@@ -127,7 +129,7 @@ void main() {
             ? const Freshness.never()
             : at(daysAgo, cadence: const Cadence.custom(Cadence.maxDays));
 
-        expect(freshness.lastSeenLabel, expected);
+        expect(freshness.lastSeenLabel(l10n), expected);
       });
     }
   });
@@ -156,7 +158,7 @@ void main() {
             ? const Freshness.never()
             : at(daysAgo, cadence: const Cadence.custom(Cadence.maxDays));
 
-        expect(freshness.elapsedLabel, expected);
+        expect(freshness.elapsedLabel(l10n), expected);
       });
     }
 
@@ -166,7 +168,10 @@ void main() {
         cadence: const Cadence.custom(Cadence.maxDays),
       );
 
-      expect(freshness.lastSeenLabel, 'Seen ${freshness.elapsedLabel} ago');
+      expect(
+        freshness.lastSeenLabel(l10n),
+        'Seen ${freshness.elapsedLabel(l10n)} ago',
+      );
     });
   });
 

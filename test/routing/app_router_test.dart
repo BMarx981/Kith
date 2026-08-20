@@ -22,6 +22,7 @@ import 'package:kith/features/household/application/household_providers.dart';
 import 'package:kith/features/household/presentation/household_screen.dart';
 import 'package:kith/features/suggestions/application/suggestion_providers.dart';
 import 'package:kith/features/suggestions/presentation/home_screen.dart';
+import 'package:kith/l10n/l10n.dart';
 import 'package:kith/routing/app_router.dart';
 import 'package:kith/routing/guards/auth_guard.dart';
 
@@ -112,7 +113,11 @@ void main() {
           // no household it waits, which is all this test needs: what is being
           // asserted is which screen the initial path lands on.
           overrides: [currentHouseholdIdProvider.overrideWithValue(null)],
-          child: MaterialApp.router(routerConfig: router.config()),
+          child: MaterialApp.router(
+            routerConfig: router.config(),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+          ),
         ),
       );
       // A fixed advance rather than `pumpAndSettle`: with no household the
@@ -147,7 +152,11 @@ void main() {
             hangoutRepositoryProvider.overrideWithValue(hangouts),
             plannedHangoutRepositoryProvider.overrideWithValue(plans),
           ],
-          child: MaterialApp.router(routerConfig: router.config()),
+          child: MaterialApp.router(
+            routerConfig: router.config(),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -214,7 +223,11 @@ void main() {
             hangoutRepositoryProvider.overrideWithValue(hangouts),
             plannedHangoutRepositoryProvider.overrideWithValue(plans),
           ],
-          child: MaterialApp.router(routerConfig: router.config()),
+          child: MaterialApp.router(
+            routerConfig: router.config(),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -278,7 +291,11 @@ void main() {
             hangoutRepositoryProvider.overrideWithValue(hangouts),
             plannedHangoutRepositoryProvider.overrideWithValue(plans),
           ],
-          child: MaterialApp.router(routerConfig: router.config()),
+          child: MaterialApp.router(
+            routerConfig: router.config(),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -358,7 +375,11 @@ void main() {
             hangoutRepositoryProvider.overrideWithValue(hangouts),
             plannedHangoutRepositoryProvider.overrideWithValue(plans),
           ],
-          child: MaterialApp.router(routerConfig: router.config()),
+          child: MaterialApp.router(
+            routerConfig: router.config(),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -413,7 +434,11 @@ void main() {
             hangoutRepositoryProvider.overrideWithValue(hangouts),
             plannedHangoutRepositoryProvider.overrideWithValue(plans),
           ],
-          child: MaterialApp.router(routerConfig: router.config()),
+          child: MaterialApp.router(
+            routerConfig: router.config(),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -451,7 +476,11 @@ void main() {
             hangoutRepositoryProvider.overrideWithValue(hangouts),
             plannedHangoutRepositoryProvider.overrideWithValue(plans),
           ],
-          child: MaterialApp.router(routerConfig: router.config()),
+          child: MaterialApp.router(
+            routerConfig: router.config(),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -482,7 +511,11 @@ void main() {
             authServiceProvider.overrideWithValue(auth),
             householdRepositoryProvider.overrideWithValue(households),
           ],
-          child: MaterialApp.router(routerConfig: router.config()),
+          child: MaterialApp.router(
+            routerConfig: router.config(),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+          ),
         ),
       );
       await tester.pumpAndSettle();

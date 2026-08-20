@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kith/core/result/failure.dart';
 import 'package:kith/features/household/domain/household_field_validator.dart';
 
 void main() {
@@ -70,7 +71,10 @@ void main() {
     });
 
     test('names the character that does not belong', () {
-      expect(HouseholdFieldValidator.inviteCode(r'KH7RQ$'), contains(r'$'));
+      final failure = HouseholdFieldValidator.inviteCode(r'KH7RQ$');
+
+      expect(failure?.issue, ValidationIssue.inviteCodeBadCharacter);
+      expect(failure?.args['char'], r'$');
     });
   });
 }

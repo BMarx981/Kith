@@ -1,4 +1,5 @@
 import 'package:kith/core/result/failure.dart';
+import 'package:kith/l10n/gen/app_localizations.dart';
 
 /// User-facing copy for [failure] from the create-or-join flow.
 ///
@@ -6,14 +7,13 @@ import 'package:kith/core/result/failure.dart';
 /// compile until it has copy here. `Failure.message` is for logs and is never
 /// shown; what the user typed is judged under the field by
 /// `HouseholdFieldValidator` before it ever gets this far.
-String householdFailureMessage(Failure failure) => switch (failure) {
-  NetworkFailure() =>
-    'You appear to be offline. Try again once you are connected.',
-  PermissionFailure() => 'Sign in again to continue.',
-  NotFoundFailure() =>
-    'That code does not match a household. Check it and try again.',
-  ValidationFailure() => 'Check what you typed and try again.',
-  ConflictFailure() => 'Something got in the way. Try that again.',
-  AuthFailure() => 'Sign in again to continue.',
-  UnknownFailure() => 'Something went wrong. Try again.',
-};
+String householdFailureMessage(AppLocalizations l10n, Failure failure) =>
+    switch (failure) {
+      NetworkFailure() => l10n.errorOffline,
+      PermissionFailure() => l10n.errorSignInAgain,
+      NotFoundFailure() => l10n.householdFailureNotFound,
+      ValidationFailure() => l10n.householdFailureValidation,
+      ConflictFailure() => l10n.householdFailureConflict,
+      AuthFailure() => l10n.errorSignInAgain,
+      UnknownFailure() => l10n.errorGeneric,
+    };

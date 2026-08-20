@@ -56,12 +56,117 @@ final class NotFoundFailure extends Failure {
   String get name => 'NotFoundFailure';
 }
 
+/// What a field refused, in terms the UI can translate.
+///
+/// One flat enum across every field the app validates, because the mapping to
+/// copy lives in one place (`validationMessage` in `lib/l10n/`) and a flat
+/// switch there is exhaustive: adding a case here fails to compile until it
+/// has copy in every locale's ARB file.
+enum ValidationIssue {
+  /// The email field was left empty.
+  emailEmpty,
+
+  /// The email field holds something that is not an address.
+  emailMalformed,
+
+  /// The password field was left empty.
+  passwordEmpty,
+
+  /// A new account's password is shorter than the app's floor.
+  passwordTooShort,
+
+  /// The contact name field was left empty.
+  contactNameEmpty,
+
+  /// A relationship label was left empty.
+  labelNameEmpty,
+
+  /// A household name was left empty.
+  householdNameEmpty,
+
+  /// The member display name was left empty.
+  displayNameEmpty,
+
+  /// A bounded text field exceeds its maximum length. `args['max']` is the
+  /// bound.
+  textTooLong,
+
+  /// More tags than a contact may carry. `args['max']` is the bound.
+  tooManyTags,
+
+  /// One tag is longer than allowed. `args['max']` is the bound.
+  tagTooLong,
+
+  /// The custom cadence field was left empty.
+  cadenceEmpty,
+
+  /// The custom cadence is not a whole number.
+  cadenceNotANumber,
+
+  /// The custom cadence is below the minimum. `args['min']` is the bound.
+  cadenceTooShort,
+
+  /// The custom cadence is above the maximum. `args['max']` is the bound.
+  cadenceTooLong,
+
+  /// The birthday field was left empty where a value was required.
+  birthdayEmpty,
+
+  /// The birthday could not be read in any accepted form.
+  birthdayUnreadable,
+
+  /// The birthday names a month that does not exist.
+  birthdayBadMonth,
+
+  /// The birth year is outside the accepted range. `args['min']` and
+  /// `args['max']` are the bounds.
+  birthdayYearOutOfRange,
+
+  /// The day does not exist in that month. `args['month']` is the month
+  /// number, `args['day']` the day.
+  birthdayNoSuchDay,
+
+  /// The invite code field was left empty.
+  inviteCodeEmpty,
+
+  /// The invite code is the wrong length. `args['length']` is the expected
+  /// length.
+  inviteCodeWrongLength,
+
+  /// The invite code holds a character outside the alphabet. `args['char']`
+  /// is the offending character.
+  inviteCodeBadCharacter,
+}
+
 /// Input failed a domain rule before any I/O was attempted.
+///
+/// [issue] is what the UI translates into copy; [message] stays English and is
+/// for logs, like every other failure's. A validation failure raised by a
+/// repository rather than a field check may carry no issue.
 final class ValidationFailure extends Failure {
-  const ValidationFailure(super.message);
+  const ValidationFailure(super.message, {this.issue, this.args = const {}});
+
+  /// Which rule was broken, or null for a repository-side refusal that no
+  /// field maps to.
+  final ValidationIssue? issue;
+
+  /// The numbers and characters the copy for [issue] interpolates.
+  final Map<String, Object> args;
 
   @override
   String get name => 'ValidationFailure';
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ValidationFailure &&
+          other.message == message &&
+          other.issue == issue &&
+          mapEquals(other.args, args);
+
+  @override
+  int get hashCode =>
+      Object.hash(ValidationFailure, message, issue, Object.hashAll(args.keys));
 }
 
 /// The write collided with existing state, e.g. a regenerated invite code that

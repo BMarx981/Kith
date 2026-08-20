@@ -1,3 +1,4 @@
+import 'package:kith/core/result/failure.dart';
 import 'package:kith/data/models/contact.dart';
 import 'package:kith/data/models/relationship_type.dart';
 import 'package:kith/features/contacts/domain/birthday.dart';
@@ -9,83 +10,112 @@ import 'package:kith/features/contacts/domain/cadence.dart';
 /// These run before any network call so an obvious slip never costs a round
 /// trip. The repository stays the authority: it re-checks the same bounds on
 /// the normalised draft, and the security rules re-check them again.
+///
+/// Each check returns the [ValidationFailure] to translate and show under the
+/// field, or null when the input is usable. The copy lives in the ARB files,
+/// keyed by the failure's issue; the message here is for logs.
 abstract final class ContactFieldValidator {
   /// Validates [input] as a contact's name.
-  ///
-  /// Returns the error to show under the field, or null when it is usable.
-  static String? name(String? input) {
+  static ValidationFailure? name(String? input) {
     final value = input?.trim() ?? '';
-    if (value.isEmpty) return 'Give the contact a name.';
-    if (value.length > Contact.maxNameLength) {
-      return 'Keep it under ${Contact.maxNameLength} characters.';
+    if (value.isEmpty) {
+      return const ValidationFailure(
+        'Give the contact a name.',
+        issue: ValidationIssue.contactNameEmpty,
+      );
     }
-    return null;
+    return _bounded(value, Contact.maxNameLength);
   }
 
   /// Validates [input] as a relationship label.
-  static String? labelName(String? input) {
+  static ValidationFailure? labelName(String? input) {
     final value = input?.trim() ?? '';
-    if (value.isEmpty) return 'Give the label a name.';
-    if (value.length > RelationshipType.maxNameLength) {
-      return 'Keep it under ${RelationshipType.maxNameLength} characters.';
+    if (value.isEmpty) {
+      return const ValidationFailure(
+        'Give the label a name.',
+        issue: ValidationIssue.labelNameEmpty,
+      );
     }
-    return null;
+    return _bounded(value, RelationshipType.maxNameLength);
   }
 
   /// Validates one of the optional single-line detail fields: a phone number,
   /// an address, a guardian's name. Blank is always allowed.
-  static String? detail(String? input) {
-    final value = input?.trim() ?? '';
-    if (value.length > Contact.maxDetailLength) {
-      return 'Keep it under ${Contact.maxDetailLength} characters.';
-    }
-    return null;
-  }
+  static ValidationFailure? detail(String? input) =>
+      _bounded(input?.trim() ?? '', Contact.maxDetailLength);
 
   /// Validates the notes field. Blank is allowed.
-  static String? notes(String? input) {
-    final value = input?.trim() ?? '';
-    if (value.length > Contact.maxNotesLength) {
-      return 'Keep it under ${Contact.maxNotesLength} characters.';
-    }
-    return null;
-  }
+  static ValidationFailure? notes(String? input) =>
+      _bounded(input?.trim() ?? '', Contact.maxNotesLength);
 
   /// Validates a custom cadence typed as a number of days.
   ///
   /// Defers to [Cadence.parse], whose refusals are written as copy for
   /// exactly this field.
-  static String? customCadence(String? input) =>
-      Cadence.parse(input ?? '').failureOrNull?.message;
+  static ValidationFailure? customCadence(String? input) =>
+      _validationOnly(Cadence.parse(input ?? '').failureOrNull);
 
   /// Validates the birthday field. Blank is allowed: most contacts will
   /// never have one, and a birthday is not worth blocking a save over.
   ///
   /// Defers to [Birthday.parse], whose refusals are written as copy for
-  /// exactly this field.
-  static String? birthday(String? input) {
+  /// exactly this field. [extraMonthNames] is passed through, so the field
+  /// accepts the user's own language's month names.
+  static ValidationFailure? birthday(
+    String? input, {
+    Map<String, int> extraMonthNames = const {},
+  }) {
     if ((input?.trim() ?? '').isEmpty) return null;
-    return Birthday.parse(input!).failureOrNull?.message;
+    return _validationOnly(
+      Birthday.parse(input!, extraMonthNames: extraMonthNames).failureOrNull,
+    );
   }
 
   /// Reads the birthday field, answering null for blank and for anything
   /// [birthday] would have refused.
-  static Birthday? parseBirthday(String? input) =>
-      (input?.trim() ?? '').isEmpty ? null : Birthday.tryParse(input);
+  static Birthday? parseBirthday(
+    String? input, {
+    Map<String, int> extraMonthNames = const {},
+  }) => (input?.trim() ?? '').isEmpty
+      ? null
+      : Birthday.parse(input!, extraMonthNames: extraMonthNames).valueOrNull;
 
   /// Validates the comma-separated tag field.
-  static String? tags(String? input) {
+  static ValidationFailure? tags(String? input) {
     final parsed = parseTags(input ?? '');
     if (parsed.length > Contact.maxTags) {
-      return 'Use at most ${Contact.maxTags} tags.';
+      return const ValidationFailure(
+        'Use at most ${Contact.maxTags} tags.',
+        issue: ValidationIssue.tooManyTags,
+        args: {'max': Contact.maxTags},
+      );
     }
     for (final tag in parsed) {
       if (tag.length > Contact.maxTagLength) {
-        return 'Keep each tag under ${Contact.maxTagLength} characters.';
+        return const ValidationFailure(
+          'Keep each tag under ${Contact.maxTagLength} characters.',
+          issue: ValidationIssue.tagTooLong,
+          args: {'max': Contact.maxTagLength},
+        );
       }
     }
     return null;
   }
+
+  /// The shared too-long refusal, or null when [value] fits under [max].
+  static ValidationFailure? _bounded(String value, int max) =>
+      value.length > max
+      ? ValidationFailure(
+          'Keep it under $max characters.',
+          issue: ValidationIssue.textTooLong,
+          args: {'max': max},
+        )
+      : null;
+
+  /// [failure] as the [ValidationFailure] it is, or null. Parse seams return
+  /// plain `Failure`; a field validator promises the translatable kind.
+  static ValidationFailure? _validationOnly(Failure? failure) =>
+      failure is ValidationFailure ? failure : null;
 
   /// Splits the comma-separated tag field into tags.
   ///

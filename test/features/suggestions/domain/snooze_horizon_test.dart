@@ -1,8 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kith/features/contacts/domain/cadence.dart';
 import 'package:kith/features/suggestions/domain/snooze_horizon.dart';
+import 'package:kith/l10n/gen/app_localizations_en.dart';
 
 void main() {
+  final l10n = AppLocalizationsEn();
+
   group('SnoozeHorizon', () {
     // A Tuesday, mid-afternoon, so the day maths has a time to discard.
     final now = DateTime.utc(2026, 8, 18, 15, 42);
@@ -41,8 +44,8 @@ void main() {
     });
 
     test('labels each choice for the card', () {
-      expect(SnoozeHorizon.week.label, 'Snooze');
-      expect(SnoozeHorizon.fullCadence.label, 'Dismiss');
+      expect(SnoozeHorizon.week.label(l10n), 'Snooze');
+      expect(SnoozeHorizon.fullCadence.label(l10n), 'Dismiss');
     });
   });
 }

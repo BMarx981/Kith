@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:kith/app/theme.dart';
 import 'package:kith/features/hangouts/domain/freshness.dart';
+import 'package:kith/l10n/l10n.dart';
 
 /// The ring that says how overdue someone is.
 ///
@@ -73,7 +74,7 @@ class FreshnessGauge extends StatelessWidget {
     final color = colorOf(context, freshness.state);
 
     return Semantics(
-      label: freshness.lastSeenLabel,
+      label: freshness.lastSeenLabel(context.l10n),
       child: SizedBox.square(
         dimension: diameter,
         child: CustomPaint(

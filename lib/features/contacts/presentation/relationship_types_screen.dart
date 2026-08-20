@@ -11,6 +11,8 @@ import 'package:kith/features/contacts/application/relationship_type_controller.
 import 'package:kith/features/contacts/domain/contact_field_validator.dart';
 import 'package:kith/features/contacts/presentation/contact_failure_message.dart';
 import 'package:kith/features/household/application/household_providers.dart';
+import 'package:kith/l10n/l10n.dart';
+import 'package:kith/l10n/validation_messages.dart';
 
 /// The household's relationship labels: add, rename, reorder, delete.
 ///
@@ -34,13 +36,13 @@ class RelationshipTypesScreen extends ConsumerWidget {
     final householdId = ref.watch(currentHouseholdIdProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Relationship labels')),
+      appBar: AppBar(title: Text(context.l10n.labelsTitle)),
       floatingActionButton: householdId == null
           ? null
           : FloatingActionButton(
               key: addKey,
               onPressed: () => _add(context, ref, householdId),
-              tooltip: 'Add a label',
+              tooltip: context.l10n.addLabelTooltip,
               child: const Icon(KithIcons.add),
             ),
       body: householdId == null
@@ -54,7 +56,10 @@ class RelationshipTypesScreen extends ConsumerWidget {
     WidgetRef ref,
     String householdId,
   ) async {
-    final name = await _promptForName(context, title: 'Add a label');
+    final name = await _promptForName(
+      context,
+      title: context.l10n.addLabelTooltip,
+    );
     if (name == null) return;
     await ref
         .read(relationshipTypeControllerProvider.notifier)
@@ -107,14 +112,17 @@ class _NameDialogState extends State<_NameDialog> {
         controller: _controller,
         autofocus: true,
         textCapitalization: TextCapitalization.sentences,
-        decoration: const InputDecoration(labelText: 'Label'),
-        validator: ContactFieldValidator.labelName,
+        decoration: InputDecoration(labelText: context.l10n.labelFieldLabel),
+        validator: (input) => validationMessage(
+          context.l10n,
+          ContactFieldValidator.labelName(input),
+        ),
       ),
     ),
     actions: [
       TextButton(
         onPressed: () => Navigator.of(context).pop(),
-        child: const Text('Cancel'),
+        child: Text(context.l10n.cancelButton),
       ),
       FilledButton(
         key: RelationshipTypesScreen.confirmKey,
@@ -122,7 +130,7 @@ class _NameDialogState extends State<_NameDialog> {
           if (!(_formKey.currentState?.validate() ?? false)) return;
           Navigator.of(context).pop(_controller.text);
         },
-        child: const Text('Save'),
+        child: Text(context.l10n.saveButton),
       ),
     ],
   );
@@ -139,18 +147,15 @@ class _TypesBody extends ConsumerWidget {
     final state = ref.watch(relationshipTypeControllerProvider);
 
     return switch (types) {
-      AsyncError(:final error) => _Message(_messageFor(error)),
+      AsyncError(:final error) => _Message(_messageFor(context.l10n, error)),
       AsyncData(:final value) => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (state.failure case final failure?)
-            _Message(contactFailureMessage(failure)),
+            _Message(contactFailureMessage(context.l10n, failure)),
           Expanded(
             child: value.isEmpty
-                ? const _Message(
-                    'No labels yet. Add one, and contacts have somewhere '
-                    'to go.',
-                  )
+                ? _Message(context.l10n.labelsEmpty)
                 : _TypeList(householdId: householdId, types: value),
           ),
         ],
@@ -159,10 +164,11 @@ class _TypesBody extends ConsumerWidget {
     };
   }
 
-  static String _messageFor(Object error) => switch (error) {
-    final Failure failure => contactFailureMessage(failure),
-    _ => 'Something went wrong. Try again.',
-  };
+  static String _messageFor(AppLocalizations l10n, Object error) =>
+      switch (error) {
+        final Failure failure => contactFailureMessage(l10n, failure),
+        _ => l10n.errorGeneric,
+      };
 }
 
 class _TypeList extends ConsumerWidget {
@@ -210,12 +216,12 @@ class _TypeList extends ConsumerWidget {
               IconButton(
                 onPressed: () => _rename(context, ref, type),
                 icon: const Icon(KithIcons.edit),
-                tooltip: 'Rename ${type.name}',
+                tooltip: context.l10n.renameLabelTooltip(type.name),
               ),
               IconButton(
                 onPressed: () => _delete(context, ref, type),
                 icon: const Icon(KithIcons.delete),
-                tooltip: 'Delete ${type.name}',
+                tooltip: context.l10n.deleteLabelTooltip(type.name),
               ),
             ],
           ),
@@ -231,7 +237,7 @@ class _TypeList extends ConsumerWidget {
   ) async {
     final name = await _promptForName(
       context,
-      title: 'Rename label',
+      title: context.l10n.renameLabelTitle,
       initial: type.name,
     );
     if (name == null) return;
@@ -251,9 +257,7 @@ class _TypeList extends ConsumerWidget {
     ];
     if (others.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Keep at least one label for contacts to use.'),
-        ),
+        SnackBar(content: Text(context.l10n.keepOneLabel)),
       );
       return;
     }
@@ -289,12 +293,12 @@ class _ReassignDialogState extends State<_ReassignDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: Text('Delete "${widget.doomed.name}"'),
+    title: Text(context.l10n.deleteLabelTitle(widget.doomed.name)),
     content: Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Move everyone filed under it to:'),
+        Text(context.l10n.reassignPrompt),
         const SizedBox(height: KithSpacing.md),
         DropdownButtonFormField<String>(
           initialValue: _reassignToId,
@@ -310,12 +314,12 @@ class _ReassignDialogState extends State<_ReassignDialog> {
     actions: [
       TextButton(
         onPressed: () => Navigator.of(context).pop(),
-        child: const Text('Cancel'),
+        child: Text(context.l10n.cancelButton),
       ),
       FilledButton(
         key: RelationshipTypesScreen.confirmKey,
         onPressed: () => Navigator.of(context).pop(_reassignToId),
-        child: const Text('Delete'),
+        child: Text(context.l10n.deleteButton),
       ),
     ],
   );

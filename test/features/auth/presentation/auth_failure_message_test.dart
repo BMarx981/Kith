@@ -1,12 +1,16 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kith/core/result/failure.dart';
 import 'package:kith/features/auth/presentation/auth_failure_message.dart';
+import 'package:kith/l10n/gen/app_localizations_en.dart';
 
 void main() {
+  final l10n = AppLocalizationsEn();
+
   group('authFailureMessage', () {
     test('has copy for every reason, and never leaks the log message', () {
       for (final reason in AuthFailureReason.values) {
         final message = authFailureMessage(
+          l10n,
           AuthFailure(reason, 'FirebaseAuthException: internal-error'),
         );
 
@@ -17,7 +21,7 @@ void main() {
 
     test('says something different for each reason', () {
       final messages = AuthFailureReason.values
-          .map((reason) => authFailureMessage(AuthFailure(reason, 'x')))
+          .map((reason) => authFailureMessage(l10n, AuthFailure(reason, 'x')))
           .toSet();
 
       expect(messages, hasLength(AuthFailureReason.values.length));
@@ -30,7 +34,7 @@ void main() {
       );
 
       expect(
-        authFailureMessage(failure),
+        authFailureMessage(l10n, failure),
         'That email and password do not match an account.',
       );
     });

@@ -52,6 +52,12 @@ dependencies:
   flutter_contacts: ^2.3.1
   flutter_local_notifications: ^22.3.0
 
+  # Localization. gen-l10n is the second approved codegen after AutoRoute: ARB
+  # files in lib/l10n/ are the source of truth, generated classes land in
+  # lib/l10n/gen/ (excluded from lints and coverage, never hand-edited).
+  flutter_localizations:
+    sdk: flutter
+
   # State management: classic providers only, no codegen.
   #
   # Held at 3.3.x deliberately. riverpod_lint 3.1.4 is the newest release whose
@@ -78,6 +84,10 @@ dependencies:
   # Already resolved transitively through Firebase; named here because lib/
   # imports it directly.
   http: ^1.6.0
+
+  # Version is dictated by flutter_localizations' exact pin, so `any` is the
+  # honest constraint. Named because generated l10n code imports it directly.
+  intl: any
 
   # Zoned wall-clock time, required by flutter_local_notifications to schedule
   # anything: "Sunday at 9am" is a local time, not an instant, and only a
@@ -114,6 +124,9 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
+
+  # Run gen-l10n on pub get / build, per l10n.yaml.
+  generate: true
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in

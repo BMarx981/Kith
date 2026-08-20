@@ -4,8 +4,8 @@
 # the build, by project decision. Set COVERAGE_THRESHOLD to a number to turn it
 # back into a gate (it will then exit non-zero below that percentage).
 #
-# Generated files are always excluded: AutoRoute's router (*.gr.dart) and the
-# FlutterFire CLI's firebase_options.dart.
+# Generated files are always excluded: AutoRoute's router (*.gr.dart), the
+# FlutterFire CLI's firebase_options.dart, and gen-l10n's lib/l10n/gen/.
 #
 # Usage:
 #   flutter test --coverage && ./tool/check_coverage.sh
@@ -24,7 +24,7 @@ fi
 # Drop generated records. Written in awk rather than lcov(1) so the report has
 # no dependency beyond what the Flutter toolchain already provides.
 awk '
-  /^SF:/ { keep = ($0 !~ /\.gr\.dart$/ && $0 !~ /firebase_options\.dart$/) }
+  /^SF:/ { keep = ($0 !~ /\.gr\.dart$/ && $0 !~ /firebase_options\.dart$/ && $0 !~ /lib\/l10n\/gen\//) }
   keep   { print }
 ' "$LCOV" > "$FILTERED"
 

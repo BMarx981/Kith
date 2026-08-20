@@ -1,26 +1,30 @@
 import 'package:flutter/foundation.dart';
 import 'package:kith/data/models/contact.dart';
 import 'package:kith/features/hangouts/domain/freshness_index.dart';
+import 'package:kith/l10n/gen/app_localizations.dart';
 
 /// How the contact list is ordered.
 enum ContactSort {
   /// A to Z, ignoring case.
-  name('Name'),
+  name,
 
   /// Newest first, so someone added a minute ago is at the top.
-  recentlyAdded('Recently added'),
+  recentlyAdded,
 
   /// Shortest target interval first: the people you mean to see most often.
-  cadence('How often'),
+  cadence,
 
   /// Most overdue first, against each contact's own cadence. Contacts with
   /// nothing logged yet have no ratio to rank on and sort last.
-  freshness('Freshness');
-
-  const ContactSort(this.label);
+  freshness;
 
   /// How the ordering is written in the sort menu.
-  final String label;
+  String label(AppLocalizations l10n) => switch (this) {
+    ContactSort.name => l10n.sortByName,
+    ContactSort.recentlyAdded => l10n.sortByRecentlyAdded,
+    ContactSort.cadence => l10n.sortByCadence,
+    ContactSort.freshness => l10n.sortByFreshness,
+  };
 }
 
 /// What the contact list is currently showing.
